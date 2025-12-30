@@ -11,18 +11,20 @@ import (
 	"github.com/eslutz/Messagarr/internal/config"
 	"github.com/eslutz/Messagarr/internal/models"
 	"github.com/eslutz/Messagarr/internal/resilience"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Server represents the HTTP server
 type Server struct {
-	config     *config.Config
-	dispatcher *channels.ChannelDispatcher
-	deduper    *resilience.Deduplicator
-	metrics    *Metrics
-	startTime  time.Time
+	config            *config.Config
+	dispatcher        *channels.ChannelDispatcher
+	deduper           *resilience.Deduplicator
+	metrics           *Metrics
+	prometheusMetrics *prometheusMetrics
+	startTime         time.Time
 }
 
-// Metrics holds server metrics
+// Metrics holds server metrics (for backward compatibility)
 type Metrics struct {
 	mu                  sync.RWMutex
 	totalNotifications  int64
@@ -33,13 +35,14 @@ type Metrics struct {
 // NewServer creates a new HTTP server
 func NewServer(cfg *config.Config) *Server {
 	return &Server{
-		config:     cfg,
-		dispatcher: channels.NewChannelDispatcher(cfg),
-		deduper:    resilience.NewDeduplicator(cfg.DedupTTL),
+		config:            cfg,
+		dispatcher:        channels.NewChannelDispatcher(cfg),
+		deduper:           resilience.NewDeduplicator(cfg.DedupTTL),
 		metrics: &Metrics{
 			channelStats: make(map[string]int64),
 		},
-		startTime: time.Now(),
+		prometheusMetrics: newPrometheusMetrics(),
+		startTime:         time.Now(),
 	}
 }
 
@@ -47,12 +50,53 @@ func NewServer(cfg *config.Config) *Server {
 func (s *Server) Router() http.Handler {
 	mux := http.NewServeMux()
 	
-	mux.HandleFunc("/notify", s.handleNotify)
-	mux.HandleFunc("/health", s.handleHealth)
-	mux.HandleFunc("/ready", s.handleReady)
-	mux.HandleFunc("/metrics", s.handleMetrics)
+	mux.HandleFunc("/notify", s.instrument("/notify", s.handleNotify))
+	mux.HandleFunc("/health", s.instrument("/health", s.handleHealth))
+	mux.HandleFunc("/ready", s.instrument("/ready", s.handleReady))
+	mux.HandleFunc("/status", s.instrument("/status", s.handleStatus))
+	mux.Handle("/metrics", promhttp.Handler())
 	
-	return s.loggingMiddleware(mux)
+	return mux
+}
+
+// instrument wraps a handler with metrics collection
+func (s *Server) instrument(path string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		start := time.Now()
+		
+		slog.Info("HTTP request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"remote_addr", r.RemoteAddr,
+		)
+		
+		next(recorder, r)
+		
+		duration := time.Since(start)
+		
+		slog.Debug("HTTP request completed",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", recorder.status,
+			"duration", duration,
+		)
+		
+		if s.prometheusMetrics != nil {
+			s.prometheusMetrics.observeRequest(path, r.Method, recorder.status, duration)
+		}
+	}
+}
+
+// statusRecorder wraps http.ResponseWriter to capture status code
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(statusCode int) {
+	r.status = statusCode
+	r.ResponseWriter.WriteHeader(statusCode)
 }
 
 // loggingMiddleware logs HTTP requests
@@ -125,7 +169,9 @@ func (s *Server) handleNotify(w http.ResponseWriter, r *http.Request) {
 	s.metrics.mu.Lock()
 	s.metrics.totalNotifications++
 	allSuccess := true
+	channelSuccessMap := make(map[string]bool)
 	for channelName, result := range results {
+		channelSuccessMap[channelName] = result.Success
 		if result.Success {
 			s.metrics.channelStats[channelName]++
 		} else {
@@ -136,13 +182,23 @@ func (s *Server) handleNotify(w http.ResponseWriter, r *http.Request) {
 		s.metrics.failedNotifications++
 	}
 	s.metrics.mu.Unlock()
+	
+	// Update Prometheus metrics
+	duration := time.Since(start)
+	priority := req.Priority
+	if priority == "" {
+		priority = "normal"
+	}
+	if s.prometheusMetrics != nil {
+		s.prometheusMetrics.observeNotification(priority, duration, allSuccess, channelSuccessMap)
+	}
 
 	// Build response
 	resp := models.NotificationResponse{
 		Success:  allSuccess,
 		Message:  "Notification sent",
 		Results:  results,
-		Duration: time.Since(start).String(),
+		Duration: duration.String(),
 	}
 	if !allSuccess {
 		resp.Message = "Notification partially failed"
@@ -197,8 +253,8 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 	s.sendJSON(w, http.StatusOK, resp)
 }
 
-// handleMetrics handles GET /metrics
-func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
+// handleStatus handles GET /status - JSON status endpoint
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -212,6 +268,11 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	totalNotifications := s.metrics.totalNotifications
 	failedNotifications := s.metrics.failedNotifications
 	s.metrics.mu.RUnlock()
+	
+	// Update Prometheus uptime metric
+	if s.prometheusMetrics != nil {
+		s.prometheusMetrics.updateUptime(s.startTime)
+	}
 
 	resp := models.MetricsResponse{
 		TotalNotifications:  totalNotifications,

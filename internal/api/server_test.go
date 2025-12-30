@@ -81,7 +81,7 @@ func TestReadyEndpoint(t *testing.T) {
 	}
 }
 
-func TestMetricsEndpoint(t *testing.T) {
+func TestStatusEndpoint(t *testing.T) {
 	cfg := &config.Config{
 		Port:     8080,
 		LogLevel: "info",
@@ -95,10 +95,10 @@ func TestMetricsEndpoint(t *testing.T) {
 	}
 
 	server := NewServer(cfg)
-	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req := httptest.NewRequest(http.MethodGet, "/status", nil)
 	w := httptest.NewRecorder()
 
-	server.handleMetrics(w, req)
+	server.handleStatus(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", w.Code)

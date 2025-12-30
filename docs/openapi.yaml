@@ -175,11 +175,35 @@ paths:
     get:
       tags:
         - health
-      summary: Get metrics
+      summary: Get Prometheus metrics
       description: |
-        Returns basic metrics about notifications sent. Can be used
-        for monitoring and observability.
+        Returns Prometheus-formatted metrics for monitoring. Includes request rates,
+        notification statistics, duration histograms, and uptime.
       operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics in text format
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP messagarr_notifications_total Total number of notifications sent.
+                # TYPE messagarr_notifications_total counter
+                messagarr_notifications_total 1234
+                # HELP messagarr_notifications_failed_total Total number of failed notifications.
+                # TYPE messagarr_notifications_failed_total counter
+                messagarr_notifications_failed_total 5
+  
+  /status:
+    get:
+      tags:
+        - health
+      summary: Get JSON status
+      description: |
+        Returns basic metrics in JSON format (legacy endpoint).
+        Use /metrics for Prometheus monitoring.
+      operationId: getStatus
       responses:
         '200':
           description: Metrics retrieved successfully

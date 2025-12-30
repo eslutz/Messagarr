@@ -165,7 +165,22 @@ Readiness probe for orchestrators.
 
 ### GET /metrics
 
-Basic metrics endpoint.
+Prometheus metrics endpoint for monitoring and alerting.
+
+**Response:** Prometheus text format with the following metrics:
+- `messagarr_notifications_total` - Total notifications sent
+- `messagarr_notifications_failed_total` - Total failed notifications
+- `messagarr_notifications_by_channel_total{channel, success}` - Notifications per channel
+- `messagarr_notification_duration_seconds{priority}` - Notification processing duration histogram
+- `messagarr_http_requests_total{path, method, code}` - HTTP request counter
+- `messagarr_http_request_duration_seconds{path, method, code}` - HTTP request duration histogram
+- `messagarr_uptime_seconds` - Service uptime
+
+See [docs/messagarr-grafana-dashboard.json](docs/messagarr-grafana-dashboard.json) for a ready-to-use Grafana dashboard.
+
+### GET /status
+
+JSON status endpoint (legacy).
 
 **Response:**
 ```json
@@ -180,6 +195,29 @@ Basic metrics endpoint.
   "uptime": "24h30m15s"
 }
 ```
+
+## Monitoring
+
+### Prometheus + Grafana
+
+Messagarr exposes Prometheus metrics on the `/metrics` endpoint. See [docs/docker-compose.example.yml](docs/docker-compose.example.yml) for a complete monitoring stack setup with Prometheus and Grafana.
+
+**Quick Start:**
+```bash
+cd docs
+cp docker-compose.example.yml docker-compose.yml
+cp .env.example .env
+# Edit .env with your values
+docker-compose up -d
+```
+
+Access Grafana at http://localhost:3000 (default credentials: admin/admin) and import the dashboard from `docs/messagarr-grafana-dashboard.json`.
+
+**Available Metrics:**
+- Request rates and durations
+- Notification success/failure rates
+- Per-channel statistics
+- Service uptime
 
 ## Channel Configuration
 
