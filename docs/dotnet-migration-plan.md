@@ -154,25 +154,25 @@ Messagarr/
   <!-- ASP.NET Core (included in SDK) -->
   <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
   <PackageReference Include="Swashbuckle.AspNetCore" Version="7.0.0" />
-  
+
   <!-- EF Core + SQLite -->
   <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0" />
   <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
-  
+
   <!-- Auth -->
   <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
-  
+
   <!-- Resilience (replaces Go retry/rate limit) -->
   <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.0" />
   <PackageReference Include="Polly" Version="8.5.0" />
-  
+
   <!-- Metrics -->
   <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
-  
+
   <!-- Utilities -->
   <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
   <PackageReference Include="MailKit" Version="4.8.0" />
-  
+
   <!-- Caching (for deduplication) -->
   <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.0" />
 </ItemGroup>
@@ -212,7 +212,7 @@ public class Channel
     public bool IsEnabled { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
-    
+
     // Navigation
     public ICollection<PriorityGroupChannel> PriorityGroups { get; set; } = [];
 }
@@ -231,7 +231,7 @@ public class PriorityGroup
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;  // "high", "normal", "low"
     public int SortOrder { get; set; }
-    
+
     // Many-to-many with Channel
     public ICollection<PriorityGroupChannel> Channels { get; set; } = [];
 }
@@ -241,7 +241,7 @@ public class PriorityGroupChannel
 {
     public int PriorityGroupId { get; set; }
     public PriorityGroup PriorityGroup { get; set; } = null!;
-    
+
     public int ChannelId { get; set; }
     public Channel Channel { get; set; } = null!;
 }
@@ -255,7 +255,7 @@ public class User
     public bool IsAdmin { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
-    
+
     public ICollection<ApiKey> ApiKeys { get; set; } = [];
 }
 
@@ -311,24 +311,24 @@ public class MessagarrDbContext : DbContext
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
     public DbSet<Setting> Settings => Set<Setting>();
-    
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Composite key for join table
         modelBuilder.Entity<PriorityGroupChannel>()
             .HasKey(pgc => new { pgc.PriorityGroupId, pgc.ChannelId });
-        
+
         // Setting key is the primary key
         modelBuilder.Entity<Setting>()
             .HasKey(s => s.Key);
-        
+
         // Indexes
         modelBuilder.Entity<NotificationLog>()
             .HasIndex(n => n.CreatedAt);
-        
+
         modelBuilder.Entity<NotificationLog>()
             .HasIndex(n => n.DeduplicationHash);
-        
+
         modelBuilder.Entity<ApiKey>()
             .HasIndex(a => a.Key);
     }
@@ -394,16 +394,16 @@ public class DiscordChannel : INotificationChannel
 {
     private readonly HttpClient _httpClient;
     private readonly Channel _config;
-    
+
     public string Name => _config.Name;
     public ChannelType Type => ChannelType.Discord;
-    
+
     public DiscordChannel(Channel config, HttpClient httpClient)
     {
         _config = config;
         _httpClient = httpClient;
     }
-    
+
     public async Task<Result> SendAsync(NotificationRequest request, CancellationToken ct)
     {
         var embed = new DiscordEmbed
@@ -412,14 +412,14 @@ public class DiscordChannel : INotificationChannel
             Description = request.Body,
             Color = GetColorForPriority(request.Priority)
         };
-        
+
         // Add metadata fields...
-        
+
         var webhook = new { embeds = new[] { embed } };
         var response = await _httpClient.PostAsJsonAsync(_config.WebhookUrl, webhook, ct);
-        
-        return response.IsSuccessStatusCode 
-            ? new Result(true) 
+
+        return response.IsSuccessStatusCode
+            ? new Result(true)
             : new Result(false, $"HTTP {response.StatusCode}");
     }
 }
@@ -432,11 +432,11 @@ public class DiscordChannel : INotificationChannel
 public class ChannelFactory
 {
     private readonly IHttpClientFactory _httpClientFactory;
-    
+
     public INotificationChannel Create(Channel config)
     {
         var httpClient = _httpClientFactory.CreateClient("Notifications");
-        
+
         return config.Type switch
         {
             ChannelType.Discord => new DiscordChannel(config, httpClient),
@@ -460,13 +460,13 @@ public class NotificationDispatcher : INotificationDispatcher
     private readonly Deduplicator _deduplicator;
     private readonly ResiliencePipeline _pipeline;
     private readonly ILogger<NotificationDispatcher> _logger;
-    
+
     public async Task<NotificationResponse> DispatchAsync(
-        NotificationRequest request, 
+        NotificationRequest request,
         CancellationToken ct)
     {
         var stopwatch = Stopwatch.StartNew();
-        
+
         // Check deduplication
         var hash = _deduplicator.ComputeHash(request);
         if (_deduplicator.IsDuplicate(hash))
@@ -478,10 +478,10 @@ public class NotificationDispatcher : INotificationDispatcher
                 Success: true
             );
         }
-        
+
         // Resolve target channels
         var channelConfigs = await ResolveChannelsAsync(request, ct);
-        
+
         // Dispatch in parallel with resilience
         var tasks = channelConfigs.Select(async config =>
         {
@@ -490,19 +490,19 @@ public class NotificationDispatcher : INotificationDispatcher
                 async token => await channel.SendAsync(request, token), ct);
             return (config.Name, result);
         });
-        
+
         var results = await Task.WhenAll(tasks);
-        
+
         // Build response
         var resultDict = results.ToDictionary(
-            r => r.Name, 
+            r => r.Name,
             r => new ChannelResult(r.result.Success, r.result.Error));
-        
+
         var allSucceeded = results.All(r => r.result.Success);
-        
+
         // Log to database
         await LogNotificationAsync(request, resultDict, stopwatch.ElapsedMilliseconds, allSucceeded, hash, ct);
-        
+
         return new NotificationResponse(
             Results: resultDict,
             Message: allSucceeded ? "Notification sent" : "Some channels failed",
@@ -510,7 +510,7 @@ public class NotificationDispatcher : INotificationDispatcher
             Success: allSucceeded
         );
     }
-    
+
     private async Task<List<Channel>> ResolveChannelsAsync(NotificationRequest request, CancellationToken ct)
     {
         // If explicit channels specified, use those
@@ -520,7 +520,7 @@ public class NotificationDispatcher : INotificationDispatcher
                 .Where(c => request.Channels.Contains(c.Name) && c.IsEnabled)
                 .ToListAsync(ct);
         }
-        
+
         // Otherwise, route by priority group
         var priority = request.Priority ?? "normal";
         return await _db.PriorityGroups
@@ -571,33 +571,33 @@ public class Deduplicator
 {
     private readonly IMemoryCache _cache;
     private readonly TimeSpan _ttl;
-    
+
     public Deduplicator(IMemoryCache cache, IOptions<DeduplicationOptions> options)
     {
         _cache = cache;
         _ttl = options.Value.Ttl;
     }
-    
+
     public string ComputeHash(NotificationRequest request)
     {
-        var data = JsonSerializer.Serialize(new 
-        { 
-            request.Title, 
-            request.Body, 
-            request.Priority, 
-            request.Service, 
-            request.EventType 
+        var data = JsonSerializer.Serialize(new
+        {
+            request.Title,
+            request.Body,
+            request.Priority,
+            request.Service,
+            request.EventType
         });
-        
+
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(data));
         return Convert.ToHexString(hashBytes);
     }
-    
+
     public bool IsDuplicate(string hash)
     {
         if (_cache.TryGetValue(hash, out _))
             return true;
-        
+
         _cache.Set(hash, true, _ttl);
         return false;
     }
@@ -639,7 +639,7 @@ builder.Services.AddAuthentication()
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("ApiAccess", policy => 
+    options.AddPolicy("ApiAccess", policy =>
         policy.RequireAuthenticatedUser()
               .AddAuthenticationSchemes("ApiKey", "Cookie"));
 });
@@ -652,7 +652,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<NotificationMetrics>();
 
 // Serilog
-builder.Host.UseSerilog((ctx, config) => 
+builder.Host.UseSerilog((ctx, config) =>
     config.ReadFrom.Configuration(ctx.Configuration));
 
 var app = builder.Build();
@@ -705,14 +705,14 @@ public static class NotificationEndpoints
         var group = app.MapGroup("/api")
             .RequireAuthorization("ApiAccess")
             .WithTags("Notifications");
-        
+
         group.MapPost("/notify", SendNotification)
             .WithName("SendNotification")
             .Produces<NotificationResponse>(200)
             .Produces<NotificationResponse>(207)
             .ProducesValidationProblem();
     }
-    
+
     private static async Task<IResult> SendNotification(
         NotificationRequest request,
         INotificationDispatcher dispatcher,
@@ -721,12 +721,12 @@ public static class NotificationEndpoints
     {
         if (string.IsNullOrEmpty(request.Title) && string.IsNullOrEmpty(request.Body))
             return Results.BadRequest("Title or body is required");
-        
+
         var response = await dispatcher.DispatchAsync(request, ct);
-        
+
         // Update Prometheus metrics
         metrics.RecordNotification(response);
-        
+
         var statusCode = response.Success ? 200 : 207;
         return Results.Json(response, statusCode: statusCode);
     }
@@ -743,11 +743,11 @@ public static class HealthEndpoints
             Timestamp: DateTime.UtcNow,
             Version: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0"
         )).WithTags("Health");
-        
+
         app.MapGet("/ready", async (MessagarrDbContext db) =>
         {
             var checks = new List<ReadyCheck>();
-            
+
             // Database check
             try
             {
@@ -758,24 +758,24 @@ public static class HealthEndpoints
             {
                 checks.Add(new ReadyCheck("database", "error", ex.Message));
             }
-            
+
             var ready = checks.All(c => c.Status == "ok");
             return new ReadyResponse(ready, DateTime.UtcNow, checks);
         }).WithTags("Health");
-        
+
         app.MapGet("/status", async (
             MessagarrDbContext db,
             IHostApplicationLifetime lifetime) =>
         {
             var stats = await db.NotificationLogs
                 .GroupBy(_ => 1)
-                .Select(g => new 
-                { 
-                    Total = g.Count(), 
-                    Failed = g.Count(n => !n.Success) 
+                .Select(g => new
+                {
+                    Total = g.Count(),
+                    Failed = g.Count(n => !n.Success)
                 })
                 .FirstOrDefaultAsync();
-            
+
             return new StatusResponse(
                 Uptime: (DateTime.UtcNow - Process.GetCurrentProcess().StartTime.ToUniversalTime()).ToString(),
                 TotalNotifications: stats?.Total ?? 0,
@@ -794,15 +794,15 @@ public static class ChannelEndpoints
         var group = app.MapGroup("/api/channels")
             .RequireAuthorization("ApiAccess")
             .WithTags("Channels");
-        
+
         group.MapGet("/", async (MessagarrDbContext db) =>
             await db.Channels.ToListAsync());
-        
+
         group.MapGet("/{id:int}", async (int id, MessagarrDbContext db) =>
-            await db.Channels.FindAsync(id) is Channel c 
-                ? Results.Ok(c) 
+            await db.Channels.FindAsync(id) is Channel c
+                ? Results.Ok(c)
                 : Results.NotFound());
-        
+
         group.MapPost("/", async (ChannelRequest request, MessagarrDbContext db) =>
         {
             var channel = request.ToEntity();
@@ -810,32 +810,32 @@ public static class ChannelEndpoints
             await db.SaveChangesAsync();
             return Results.Created($"/api/channels/{channel.Id}", channel);
         });
-        
+
         group.MapPut("/{id:int}", async (int id, ChannelRequest request, MessagarrDbContext db) =>
         {
             var channel = await db.Channels.FindAsync(id);
             if (channel is null) return Results.NotFound();
-            
+
             request.UpdateEntity(channel);
             await db.SaveChangesAsync();
             return Results.Ok(channel);
         });
-        
+
         group.MapDelete("/{id:int}", async (int id, MessagarrDbContext db) =>
         {
             var channel = await db.Channels.FindAsync(id);
             if (channel is null) return Results.NotFound();
-            
+
             db.Channels.Remove(channel);
             await db.SaveChangesAsync();
             return Results.NoContent();
         });
-        
+
         group.MapPost("/{id:int}/test", async (int id, MessagarrDbContext db, ChannelFactory factory) =>
         {
             var channel = await db.Channels.FindAsync(id);
             if (channel is null) return Results.NotFound();
-            
+
             var notificationChannel = factory.Create(channel);
             var result = await notificationChannel.SendAsync(new NotificationRequest(
                 Title: "Test Notification",
@@ -843,7 +843,7 @@ public static class ChannelEndpoints
                 Priority: "normal",
                 Service: null, EventType: null, Metadata: null, Channels: null
             ));
-            
+
             return result.Success ? Results.Ok("Test sent") : Results.BadRequest(result.Error);
         });
     }
@@ -872,41 +872,41 @@ public static class ChannelEndpoints
 public class ApiKeyAuthHandler : AuthenticationHandler<ApiKeyAuthOptions>
 {
     private readonly MessagarrDbContext _db;
-    
+
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         // Check X-Api-Key header
         if (!Request.Headers.TryGetValue("X-Api-Key", out var headerValue))
             return AuthenticateResult.NoResult();
-        
+
         var providedKey = headerValue.ToString();
         var keyHash = ComputeKeyHash(providedKey);
-        
+
         var apiKey = await _db.ApiKeys
             .Include(k => k.User)
             .FirstOrDefaultAsync(k => k.Key == keyHash);
-        
+
         if (apiKey is null)
             return AuthenticateResult.Fail("Invalid API key");
-        
+
         if (apiKey.ExpiresAt.HasValue && apiKey.ExpiresAt < DateTime.UtcNow)
             return AuthenticateResult.Fail("API key expired");
-        
+
         // Update last used
         apiKey.LastUsedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        
+
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, apiKey.UserId.ToString()),
             new Claim(ClaimTypes.Name, apiKey.User.Username),
             new Claim("ApiKeyId", apiKey.Id.ToString())
         };
-        
+
         var identity = new ClaimsIdentity(claims, Scheme.Name);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, Scheme.Name);
-        
+
         return AuthenticateResult.Success(ticket);
     }
 }
@@ -920,40 +920,40 @@ public class FirstLaunchMiddleware
 {
     private readonly RequestDelegate _next;
     private bool? _isInitialized;
-    
+
     public async Task InvokeAsync(HttpContext context, MessagarrDbContext db)
     {
         // Skip for static files and initialize endpoint
         var path = context.Request.Path.Value ?? "";
-        if (path.StartsWith("/assets") || 
+        if (path.StartsWith("/assets") ||
             path.StartsWith("/api/initialize") ||
             path == "/initialize")
         {
             await _next(context);
             return;
         }
-        
+
         // Cache the check
         _isInitialized ??= await db.Users.AnyAsync();
-        
+
         if (!_isInitialized.Value)
         {
             // Redirect to initialization wizard
             if (context.Request.Path.StartsWithSegments("/api"))
             {
                 context.Response.StatusCode = 503;
-                await context.Response.WriteAsJsonAsync(new 
-                { 
+                await context.Response.WriteAsJsonAsync(new
+                {
                     error = "System not initialized",
                     initializeUrl = "/initialize"
                 });
                 return;
             }
-            
+
             context.Response.Redirect("/initialize");
             return;
         }
-        
+
         await _next(context);
     }
 }
@@ -1057,7 +1057,7 @@ export function Sidebar() {
     { icon: <Users />, label: 'Users', path: '/users' },
     { icon: <Settings />, label: 'Settings', path: '/settings' },
   ];
-  
+
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -1082,9 +1082,9 @@ export function ChannelsPage() {
     queryKey: ['channels'],
     queryFn: () => api.channels.list()
   });
-  
+
   const [showModal, setShowModal] = useState(false);
-  
+
   return (
     <div className="page">
       <header className="page-header">
@@ -1093,13 +1093,13 @@ export function ChannelsPage() {
           <Plus /> Add Channel
         </Button>
       </header>
-      
+
       <div className="card-grid">
         {channels?.map(channel => (
           <ChannelCard key={channel.id} channel={channel} />
         ))}
       </div>
-      
+
       {showModal && (
         <ChannelModal onClose={() => setShowModal(false)} />
       )}
@@ -1118,24 +1118,24 @@ export function ChannelsPage() {
   --color-bg-secondary: #282a2d;
   --color-bg-card: #323438;
   --color-bg-input: #3a3c40;
-  
+
   --color-text-primary: #f5f5f5;
   --color-text-secondary: #9e9e9e;
   --color-text-muted: #6e6e6e;
-  
+
   --color-accent: #3b82f6;
   --color-accent-hover: #2563eb;
-  
+
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-error: #ef4444;
-  
+
   --color-border: #404246;
-  
+
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  
+
   --sidebar-width: 220px;
 }
 
@@ -1311,61 +1311,61 @@ build: ui-build dotnet-build
 
 # Build .NET
 dotnet-build:
-	dotnet build src/Messagarr/Messagarr.csproj
+ dotnet build src/Messagarr/Messagarr.csproj
 
 # Build UI
 ui-build:
-	cd src/Messagarr/ClientApp && npm ci && npm run build
+ cd src/Messagarr/ClientApp && npm ci && npm run build
 
 # Run development (hot reload)
 run:
-	dotnet watch run --project src/Messagarr/Messagarr.csproj
+ dotnet watch run --project src/Messagarr/Messagarr.csproj
 
 # Run UI development server
 ui-dev:
-	cd src/Messagarr/ClientApp && npm run dev
+ cd src/Messagarr/ClientApp && npm run dev
 
 # Run tests
 test:
-	dotnet test tests/Messagarr.Tests/Messagarr.Tests.csproj
+ dotnet test tests/Messagarr.Tests/Messagarr.Tests.csproj
 
 # Run tests with coverage
 coverage:
-	dotnet test tests/Messagarr.Tests/Messagarr.Tests.csproj --collect:"XPlat Code Coverage"
+ dotnet test tests/Messagarr.Tests/Messagarr.Tests.csproj --collect:"XPlat Code Coverage"
 
 # Clean build artifacts
 clean:
-	dotnet clean
-	rm -rf src/Messagarr/wwwroot/*
-	rm -rf src/Messagarr/ClientApp/dist
+ dotnet clean
+ rm -rf src/Messagarr/wwwroot/*
+ rm -rf src/Messagarr/ClientApp/dist
 
 # EF Core migrations
 migration-add:
-	dotnet ef migrations add $(name) --project src/Messagarr/Messagarr.csproj
+ dotnet ef migrations add $(name) --project src/Messagarr/Messagarr.csproj
 
 migration-apply:
-	dotnet ef database update --project src/Messagarr/Messagarr.csproj
+ dotnet ef database update --project src/Messagarr/Messagarr.csproj
 
 # Docker
 docker-build:
-	docker build -t messagarr:latest .
+ docker build -t messagarr:latest .
 
 docker-run:
-	docker run -d -p 4545:4545 -v $(PWD)/config:/config messagarr:latest
+ docker run -d -p 4545:4545 -v $(PWD)/config:/config messagarr:latest
 
 # Lint
 lint:
-	dotnet format src/Messagarr/Messagarr.csproj --verify-no-changes
+ dotnet format src/Messagarr/Messagarr.csproj --verify-no-changes
 
 # Format
 format:
-	dotnet format src/Messagarr/Messagarr.csproj
+ dotnet format src/Messagarr/Messagarr.csproj
 
 # Full development setup
 dev-setup:
-	dotnet restore
-	cd src/Messagarr/ClientApp && npm ci
-	dotnet ef database update --project src/Messagarr/Messagarr.csproj
+ dotnet restore
+ cd src/Messagarr/ClientApp && npm ci
+ dotnet ef database update --project src/Messagarr/Messagarr.csproj
 ```
 
 ### 11.2 VS Code Tasks
@@ -1446,7 +1446,7 @@ public class YamlConfigImporter
         var yaml = await File.ReadAllTextAsync(yamlPath);
         var deserializer = new DeserializerBuilder().Build();
         var config = deserializer.Deserialize<GoConfig>(yaml);
-        
+
         // Import channels
         foreach (var channel in config.Channels)
         {
@@ -1460,7 +1460,7 @@ public class YamlConfigImporter
                 // ... etc
             });
         }
-        
+
         // Import priority groups
         foreach (var (name, channelNames) in config.PriorityGroups)
         {
@@ -1468,7 +1468,7 @@ public class YamlConfigImporter
             db.PriorityGroups.Add(group);
             // Link channels after SaveChanges
         }
-        
+
         await db.SaveChangesAsync();
     }
 }
@@ -1481,6 +1481,7 @@ public class YamlConfigImporter
 For drop-in replacement compatibility, ensure the `/notify` request/response format matches exactly:
 
 **Request (unchanged)**:
+
 ```json
 {
   "title": "Deployment Complete",
@@ -1494,6 +1495,7 @@ For drop-in replacement compatibility, ensure the `/notify` request/response for
 ```
 
 **Response (unchanged)**:
+
 ```json
 {
   "results": {
