@@ -1,0 +1,13 @@
+# Prometheus configuration for Messagarr
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'messagarr-monitor'
+
+scrape_configs:
+  - job_name: 'messagarr'
+    static_configs:
+      - targets: ['messagarr:4545']
+        labels:
+          service: 'messagarr'

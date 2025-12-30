@@ -1,0 +1,177 @@
+# =============================================================================
+# Messagarr Configuration Example
+# =============================================================================
+# This file documents all available configuration options for Messagarr.
+# Copy this file to config/messagarr/config.yaml and customize as needed.
+#
+# IMPORTANT: Never store secrets directly in this file!
+# Use environment variables with ${VAR_NAME} or $VAR_NAME syntax.
+# Environment variables are interpolated at config load time.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Server Settings
+# -----------------------------------------------------------------------------
+
+# port: The HTTP port Messagarr listens on
+# Type: integer
+# Default: 4545
+# Environment variable override: Not supported (must be in config file)
+port: 4545
+
+# log_level: Controls the verbosity of application logs
+# Type: string
+# Allowed values: debug, info, warn, error
+# Default: info
+# - debug: Most verbose, includes all logs (useful for development)
+# - info: Standard operational logs
+# - warn: Warnings and errors only
+# - error: Only error messages
+log_level: info
+
+# -----------------------------------------------------------------------------
+# Deduplication Settings
+# -----------------------------------------------------------------------------
+
+# dedup_ttl: Time-to-live for deduplication cache entries
+# Type: duration string
+# Format: Go duration (e.g., "30s", "5m", "1h", "24h")
+# Default: 5m (5 minutes)
+#
+# When a notification is sent, its hash is cached for this duration.
+# Duplicate notifications with the same content within this window are ignored.
+# Set to "0" to disable deduplication (not recommended).
+dedup_ttl: 5m
+
+# -----------------------------------------------------------------------------
+# Channels Configuration
+# -----------------------------------------------------------------------------
+# Define notification channels as an array. Each channel requires a 'type' field.
+#
+# Supported channel types:
+# - discord: Discord webhook notifications
+# - slack: Slack webhook notifications
+# - teams: Microsoft Teams webhook notifications
+# - smtp: Email notifications via SMTP
+#
+# Channel naming:
+# - By default, 'type' is used as the channel name for priority_groups
+# - Use optional 'name' field to create multiple channels of the same type
+#   Example: { type: discord, name: discord-alerts, webhook_url: ... }
+# -----------------------------------------------------------------------------
+
+channels:
+  # ---------------------------------------------------------------------------
+  # Discord Channel
+  # ---------------------------------------------------------------------------
+  # Discord uses incoming webhooks for notifications.
+  # Create a webhook: Server Settings > Integrations > Webhooks > New Webhook
+  #
+  # Required: type, webhook_url
+  # Optional: name (defaults to "discord"), metadata
+  # ---------------------------------------------------------------------------
+  - type: discord
+    webhook_url: ${DISCORD_WEBHOOK_URL}
+
+  # ---------------------------------------------------------------------------
+  # Slack Channel
+  # ---------------------------------------------------------------------------
+  # Slack uses incoming webhooks for notifications.
+  # Create a webhook: https://api.slack.com/messaging/webhooks
+  #
+  # Required: type, webhook_url
+  # Optional: name (defaults to "slack"), metadata
+  # ---------------------------------------------------------------------------
+  - type: slack
+    webhook_url: ${SLACK_WEBHOOK_URL}
+
+  # ---------------------------------------------------------------------------
+  # Microsoft Teams Channel
+  # ---------------------------------------------------------------------------
+  # Teams uses incoming webhooks (connectors) for notifications.
+  # Create a webhook: Channel > More options > Connectors > Incoming Webhook
+  #
+  # Required: type, webhook_url
+  # Optional: name (defaults to "teams"), metadata
+  # ---------------------------------------------------------------------------
+  - type: teams
+    webhook_url: ${TEAMS_WEBHOOK_URL}
+
+  # ---------------------------------------------------------------------------
+  # SMTP (Email) Channel
+  # ---------------------------------------------------------------------------
+  # Send notifications via email using SMTP.
+  #
+  # Required: type, host, port, from, to
+  # Optional: name (defaults to "smtp"), user, password, metadata
+  #
+  # Common SMTP ports:
+  # - 25: Unencrypted (often blocked by ISPs)
+  # - 465: SSL/TLS (implicit encryption)
+  # - 587: STARTTLS (explicit encryption) - Recommended
+  #
+  # Security Note: For Gmail, use App Passwords instead of your account password.
+  # https://support.google.com/accounts/answer/185833
+  # ---------------------------------------------------------------------------
+  - type: smtp
+    name: email # Optional: use 'email' instead of 'smtp' in priority_groups
+    host: ${SMTP_HOST}
+    port: 587
+    user: ${SMTP_USER}
+    password: ${SMTP_PASSWORD}
+    from: ${SMTP_FROM}
+    to: ${SMTP_TO}
+
+# -----------------------------------------------------------------------------
+# Priority Groups Configuration
+# -----------------------------------------------------------------------------
+# Priority groups determine which channels receive notifications based on
+# the notification's priority level.
+#
+# When sending a notification, specify a priority (high, normal, low).
+# The notification will be sent to ALL channels listed in that priority group.
+#
+# Built-in priority levels:
+# - high: Critical alerts requiring immediate attention
+# - normal: Standard notifications (default if not specified)
+# - low: Informational messages, less urgent
+#
+# Reference channels by their name (defaults to type if name not specified).
+# -----------------------------------------------------------------------------
+
+priority_groups:
+  # High priority: Critical alerts - notify everywhere
+  high:
+    - discord
+    - slack
+    - teams
+    - email
+
+  # Normal priority: Standard notifications - primary channels only
+  normal:
+    - discord
+    - slack
+
+  # Low priority: Informational - single channel
+  low:
+    - discord
+# =============================================================================
+# Environment Variables Reference
+# =============================================================================
+# The following environment variables should be set for the above configuration:
+#
+# DISCORD_WEBHOOK_URL  - Discord incoming webhook URL
+# SLACK_WEBHOOK_URL    - Slack incoming webhook URL
+# TEAMS_WEBHOOK_URL    - Microsoft Teams incoming webhook URL
+# SMTP_HOST            - SMTP server hostname
+# SMTP_USER            - SMTP authentication username
+# SMTP_PASSWORD        - SMTP authentication password
+# SMTP_FROM            - Email sender address
+# SMTP_TO              - Email recipient address
+#
+# You can set these in:
+# - A .env file (with docker-compose)
+# - Docker environment variables
+# - Shell environment (export VAR=value)
+# - Kubernetes secrets/configmaps
+# =============================================================================

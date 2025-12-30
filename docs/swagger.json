@@ -1,0 +1,358 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Messagarr is a lightweight notification aggregation service that routes messages\nto multiple channels (Email, Discord, Slack, Teams) based on priority.",
+        "title": "Messagarr API",
+        "contact": {
+            "name": "Messagarr Support",
+            "url": "https://github.com/eslutz/Messagarr"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://github.com/eslutz/Messagarr/blob/main/LICENSE"
+        },
+        "version": "{{VERSION}}"
+    },
+    "host": "localhost:4545",
+    "basePath": "/",
+    "paths": {
+        "/health": {
+            "get": {
+                "description": "Returns the health status of the service. Used by load balancers and orchestrators for liveness probes.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "Service is healthy",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_eslutz_Messagarr_internal_models.HealthResponse"
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/notify": {
+            "post": {
+                "description": "Send a notification to one or more channels. Notifications can be routed by priority\ngroups or to specific channels. Duplicates are suppressed within a configurable time window.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Send a notification",
+                "parameters": [
+                    {
+                        "description": "Notification request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_eslutz_Messagarr_internal_models.NotificationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Notification sent successfully",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_eslutz_Messagarr_internal_models.NotificationResponse"
+                        }
+                    },
+                    "207": {
+                        "description": "Notification partially sent (some channels failed)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_eslutz_Messagarr_internal_models.NotificationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/ready": {
+            "get": {
+                "description": "Returns the readiness status of the service. Used by orchestrators to determine if the service is ready to accept traffic.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Readiness check",
+                "responses": {
+                    "200": {
+                        "description": "Service is ready",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_eslutz_Messagarr_internal_models.ReadyResponse"
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/status": {
+            "get": {
+                "description": "Returns basic metrics in JSON format. Use /metrics for Prometheus monitoring.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Get JSON status",
+                "responses": {
+                    "200": {
+                        "description": "Metrics retrieved successfully",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_eslutz_Messagarr_internal_models.MetricsResponse"
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "github_com_eslutz_Messagarr_internal_models.Check": {
+            "description": "Individual readiness check result",
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "Additional message (usually for errors)",
+                    "type": "string",
+                    "example": "Configuration loaded successfully"
+                },
+                "name": {
+                    "description": "Name of the check",
+                    "type": "string",
+                    "example": "config"
+                },
+                "status": {
+                    "description": "Status of the check",
+                    "type": "string",
+                    "enum": [
+                        "ok",
+                        "error"
+                    ],
+                    "example": "ok"
+                }
+            }
+        },
+        "github_com_eslutz_Messagarr_internal_models.HealthResponse": {
+            "description": "Health check response",
+            "type": "object",
+            "properties": {
+                "status": {
+                    "description": "Health status",
+                    "type": "string",
+                    "example": "ok"
+                },
+                "timestamp": {
+                    "description": "Current server time",
+                    "type": "string",
+                    "example": "2025-12-30T01:00:00Z"
+                },
+                "version": {
+                    "description": "Application version",
+                    "type": "string",
+                    "example": "1.0.0-dev.1"
+                }
+            }
+        },
+        "github_com_eslutz_Messagarr_internal_models.MetricsResponse": {
+            "description": "JSON metrics response",
+            "type": "object",
+            "properties": {
+                "channel_stats": {
+                    "description": "Number of successful notifications per channel",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                },
+                "failed_notifications": {
+                    "description": "Total number of failed notifications",
+                    "type": "integer",
+                    "example": 5
+                },
+                "total_notifications": {
+                    "description": "Total number of notifications sent",
+                    "type": "integer",
+                    "example": 1234
+                },
+                "uptime": {
+                    "description": "Service uptime",
+                    "type": "string",
+                    "example": "24h30m15s"
+                }
+            }
+        },
+        "github_com_eslutz_Messagarr_internal_models.NotificationRequest": {
+            "description": "Notification request payload",
+            "type": "object",
+            "properties": {
+                "body": {
+                    "description": "Notification body/message",
+                    "type": "string",
+                    "example": "Application v1.2.3 deployed to production"
+                },
+                "channels": {
+                    "description": "Explicit list of channels to send to (overrides priority-based routing)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "discord",
+                        "email"
+                    ]
+                },
+                "event_type": {
+                    "description": "Type of event triggering the notification",
+                    "type": "string",
+                    "example": "deploy.success"
+                },
+                "metadata": {
+                    "description": "Additional key-value metadata",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "priority": {
+                    "description": "Priority level (determines which channels receive the notification)",
+                    "type": "string",
+                    "enum": [
+                        "high",
+                        "normal",
+                        "low"
+                    ],
+                    "example": "high"
+                },
+                "service": {
+                    "description": "Name of the service sending the notification",
+                    "type": "string",
+                    "example": "deployment-service"
+                },
+                "title": {
+                    "description": "Notification title/subject",
+                    "type": "string",
+                    "example": "Deployment Complete"
+                }
+            }
+        },
+        "github_com_eslutz_Messagarr_internal_models.NotificationResponse": {
+            "description": "Notification response with results per channel",
+            "type": "object",
+            "properties": {
+                "duration": {
+                    "description": "Total time taken to process the notification",
+                    "type": "string",
+                    "example": "245ms"
+                },
+                "message": {
+                    "description": "Summary message",
+                    "type": "string",
+                    "example": "Notification sent"
+                },
+                "results": {
+                    "description": "Results per channel",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/github_com_eslutz_Messagarr_internal_models.Result"
+                    }
+                },
+                "success": {
+                    "description": "True if all channels succeeded",
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "github_com_eslutz_Messagarr_internal_models.ReadyResponse": {
+            "description": "Readiness check response",
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "description": "Individual readiness checks",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_eslutz_Messagarr_internal_models.Check"
+                    }
+                },
+                "ready": {
+                    "description": "True if service is ready",
+                    "type": "boolean",
+                    "example": true
+                },
+                "timestamp": {
+                    "description": "Current server time",
+                    "type": "string",
+                    "example": "2025-12-30T01:00:00Z"
+                }
+            }
+        },
+        "github_com_eslutz_Messagarr_internal_models.Result": {
+            "description": "Result of sending to a single channel",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error message if failed",
+                    "type": "string",
+                    "example": "failed to connect to SMTP server"
+                },
+                "success": {
+                    "description": "True if this channel succeeded",
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        }
+    },
+    "tags": [
+        {
+            "description": "Notification operations",
+            "name": "notifications"
+        },
+        {
+            "description": "Health and monitoring endpoints",
+            "name": "health"
+        }
+    ]
+}

@@ -1,0 +1,187 @@
+# ==============================================================================
+# Continuous Integration Pipeline
+# Runs on Pull Requests and pushes to the main branch.
+# Executes unit tests with coverage enforcement, code linting, static security
+# analysis (CodeQL), and container image vulnerability scanning (Trivy).
+# ==============================================================================
+
+name: CI
+
+# ------------------------------------------------------------------------------
+# Triggers
+# ------------------------------------------------------------------------------
+on:
+  pull_request:
+    branches:
+      - main
+    # Ignore documentation changes
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - ".github/**"
+  push:
+    branches:
+      - main
+    # Ignore documentation changes
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - ".github/**"
+
+# ------------------------------------------------------------------------------
+# Concurrency
+# ------------------------------------------------------------------------------
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ------------------------------------------------------------------------------
+# Environment Variables
+# ------------------------------------------------------------------------------
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# ------------------------------------------------------------------------------
+# Jobs
+# ------------------------------------------------------------------------------
+jobs:
+  # ----------------------------------------------------------------------------
+  # Tests: Unit tests with coverage enforcement
+  # ----------------------------------------------------------------------------
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+
+      - name: Run tests with coverage
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Display coverage summary
+        run: |
+          echo "================================"
+          echo "Overall Coverage (all files):"
+          echo "================================"
+          go tool cover -func=coverage.out | tail -1
+
+      - name: Calculate coverage excluding main
+        run: |
+          # Remove excluded files from coverage profile
+          grep -v "cmd/messagarr/main.go" coverage.out > coverage-filtered.out || true
+
+          # Ensure header is present
+          if ! head -n 1 coverage-filtered.out | grep -q "^mode:"; then
+            head -n 1 coverage.out > temp.out
+            cat coverage-filtered.out >> temp.out
+            mv temp.out coverage-filtered.out
+          fi
+
+      - name: Enforce coverage >= 60%
+        run: |
+          echo ""
+          echo "======================================="
+          echo "Filtered Coverage (excluding files):"
+          echo "  - cmd/messagarr/main.go"
+          echo "======================================="
+          go tool cover -func=coverage-filtered.out | awk '
+            /^total:/ {
+              sub(/%/, "", $3);
+              printf "Coverage: %.1f%%\n\n", $3
+              if ($3 < 60.0) {
+                printf "❌ Coverage below 60%% target: %.1f%%\n", $3
+                exit 1
+              }
+              printf "✓ Coverage meets 60%% requirement (%.1f%%)\n", $3
+            }
+          '
+
+  # ----------------------------------------------------------------------------
+  # Lint: Code quality checks
+  # ----------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+
+  # ----------------------------------------------------------------------------
+  # CodeQL: Static security analysis
+  # ----------------------------------------------------------------------------
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          queries: security-extended,security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v4
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:go"
+
+  # ----------------------------------------------------------------------------
+  # Trivy: Container image vulnerability scanning
+  # ----------------------------------------------------------------------------
+  trivy:
+    name: Trivy Image Scan
+    runs-on: ubuntu-latest
+    needs: [tests, lint, codeql]
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set image name
+        id: image
+        run: echo "name=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Build Docker Image
+        run: docker build -t ${{ steps.image.outputs.name }}:scan .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ steps.image.outputs.name }}:scan"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: "trivy-results.sarif"
+          category: "trivy-container-ci"

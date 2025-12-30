@@ -1,0 +1,261 @@
+basePath: /
+definitions:
+  github_com_eslutz_Messagarr_internal_models.Check:
+    description: Individual readiness check result
+    properties:
+      message:
+        description: Additional message (usually for errors)
+        example: Configuration loaded successfully
+        type: string
+      name:
+        description: Name of the check
+        example: config
+        type: string
+      status:
+        description: Status of the check
+        enum:
+        - ok
+        - error
+        example: ok
+        type: string
+    type: object
+  github_com_eslutz_Messagarr_internal_models.HealthResponse:
+    description: Health check response
+    properties:
+      status:
+        description: Health status
+        example: ok
+        type: string
+      timestamp:
+        description: Current server time
+        example: "2025-12-30T01:00:00Z"
+        type: string
+      version:
+        description: Application version
+        example: 1.0.0-dev.1
+        type: string
+    type: object
+  github_com_eslutz_Messagarr_internal_models.MetricsResponse:
+    description: JSON metrics response
+    properties:
+      channel_stats:
+        additionalProperties:
+          format: int64
+          type: integer
+        description: Number of successful notifications per channel
+        type: object
+      failed_notifications:
+        description: Total number of failed notifications
+        example: 5
+        type: integer
+      total_notifications:
+        description: Total number of notifications sent
+        example: 1234
+        type: integer
+      uptime:
+        description: Service uptime
+        example: 24h30m15s
+        type: string
+    type: object
+  github_com_eslutz_Messagarr_internal_models.NotificationRequest:
+    description: Notification request payload
+    properties:
+      body:
+        description: Notification body/message
+        example: Application v1.2.3 deployed to production
+        type: string
+      channels:
+        description: Explicit list of channels to send to (overrides priority-based
+          routing)
+        example:
+        - discord
+        - email
+        items:
+          type: string
+        type: array
+      event_type:
+        description: Type of event triggering the notification
+        example: deploy.success
+        type: string
+      metadata:
+        additionalProperties:
+          type: string
+        description: Additional key-value metadata
+        type: object
+      priority:
+        description: Priority level (determines which channels receive the notification)
+        enum:
+        - high
+        - normal
+        - low
+        example: high
+        type: string
+      service:
+        description: Name of the service sending the notification
+        example: deployment-service
+        type: string
+      title:
+        description: Notification title/subject
+        example: Deployment Complete
+        type: string
+    type: object
+  github_com_eslutz_Messagarr_internal_models.NotificationResponse:
+    description: Notification response with results per channel
+    properties:
+      duration:
+        description: Total time taken to process the notification
+        example: 245ms
+        type: string
+      message:
+        description: Summary message
+        example: Notification sent
+        type: string
+      results:
+        additionalProperties:
+          $ref: '#/definitions/github_com_eslutz_Messagarr_internal_models.Result'
+        description: Results per channel
+        type: object
+      success:
+        description: True if all channels succeeded
+        example: true
+        type: boolean
+    type: object
+  github_com_eslutz_Messagarr_internal_models.ReadyResponse:
+    description: Readiness check response
+    properties:
+      checks:
+        description: Individual readiness checks
+        items:
+          $ref: '#/definitions/github_com_eslutz_Messagarr_internal_models.Check'
+        type: array
+      ready:
+        description: True if service is ready
+        example: true
+        type: boolean
+      timestamp:
+        description: Current server time
+        example: "2025-12-30T01:00:00Z"
+        type: string
+    type: object
+  github_com_eslutz_Messagarr_internal_models.Result:
+    description: Result of sending to a single channel
+    properties:
+      error:
+        description: Error message if failed
+        example: failed to connect to SMTP server
+        type: string
+      success:
+        description: True if this channel succeeded
+        example: true
+        type: boolean
+    type: object
+host: localhost:4545
+info:
+  contact:
+    name: Messagarr Support
+    url: https://github.com/eslutz/Messagarr
+  description: |-
+    Messagarr is a lightweight notification aggregation service that routes messages
+    to multiple channels (Email, Discord, Slack, Teams) based on priority.
+  license:
+    name: MIT
+    url: https://github.com/eslutz/Messagarr/blob/main/LICENSE
+  title: Messagarr API
+  version: '{{VERSION}}'
+paths:
+  /health:
+    get:
+      description: Returns the health status of the service. Used by load balancers
+        and orchestrators for liveness probes.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is healthy
+          schema:
+            $ref: '#/definitions/github_com_eslutz_Messagarr_internal_models.HealthResponse'
+        "405":
+          description: Method not allowed
+          schema:
+            type: string
+      summary: Health check
+      tags:
+      - health
+  /notify:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Send a notification to one or more channels. Notifications can be routed by priority
+        groups or to specific channels. Duplicates are suppressed within a configurable time window.
+      parameters:
+      - description: Notification request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_eslutz_Messagarr_internal_models.NotificationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Notification sent successfully
+          schema:
+            $ref: '#/definitions/github_com_eslutz_Messagarr_internal_models.NotificationResponse'
+        "207":
+          description: Notification partially sent (some channels failed)
+          schema:
+            $ref: '#/definitions/github_com_eslutz_Messagarr_internal_models.NotificationResponse'
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "405":
+          description: Method not allowed
+          schema:
+            type: string
+      summary: Send a notification
+      tags:
+      - notifications
+  /ready:
+    get:
+      description: Returns the readiness status of the service. Used by orchestrators
+        to determine if the service is ready to accept traffic.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is ready
+          schema:
+            $ref: '#/definitions/github_com_eslutz_Messagarr_internal_models.ReadyResponse'
+        "405":
+          description: Method not allowed
+          schema:
+            type: string
+      summary: Readiness check
+      tags:
+      - health
+  /status:
+    get:
+      description: Returns basic metrics in JSON format. Use /metrics for Prometheus
+        monitoring.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Metrics retrieved successfully
+          schema:
+            $ref: '#/definitions/github_com_eslutz_Messagarr_internal_models.MetricsResponse'
+        "405":
+          description: Method not allowed
+          schema:
+            type: string
+      summary: Get JSON status
+      tags:
+      - health
+swagger: "2.0"
+tags:
+- description: Notification operations
+  name: notifications
+- description: Health and monitoring endpoints
+  name: health
