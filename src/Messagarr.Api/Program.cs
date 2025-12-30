@@ -1,3 +1,6 @@
+using Messagarr.Api.Endpoints;
+using Messagarr.Api.Services;
+using Messagarr.Core.Interfaces;
 using Messagarr.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +21,10 @@ Directory.CreateDirectory(dataDirectory);
 var dbPath = Path.Combine(dataDirectory, "messagarr.db");
 builder.Services.AddDbContext<MessagearrDbContext>(options =>
     options.UseSqlite($"Data Source={dbPath}"));
+
+// Register services
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IChannelService, ChannelService>();
 
 // CORS for web UI
 builder.Services.AddCors(options =>
@@ -48,14 +55,16 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 
+// Map endpoints
+app.MapAuthEndpoints();
+app.MapChannelEndpoints();
+
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
-    .WithName("Health")
-    .WithOpenApi();
+    .WithName("Health");
 
 // Readiness check endpoint
 app.MapGet("/ready", () => Results.Ok(new { status = "ready", timestamp = DateTime.UtcNow }))
-    .WithName("Ready")
-    .WithOpenApi();
+    .WithName("Ready");
 
 app.Run();
