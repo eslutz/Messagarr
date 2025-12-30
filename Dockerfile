@@ -17,8 +17,8 @@ ARG DATE=unknown
 
 # Build the application with version info
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
-    -ldflags="-w -s -X main.version=${VERSION}" \
-    -o messagarr ./cmd/messagarr
+  -ldflags="-w -s -X main.version=${VERSION}" \
+  -o messagarr ./cmd/messagarr
 
 # Final stage
 FROM alpine:latest
@@ -27,9 +27,6 @@ WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /build/messagarr .
-
-# Copy default config
-COPY --from=builder /build/config ./config
 
 # Create non-root user
 RUN addgroup -g 1000 messagarr && \
