@@ -8,6 +8,6 @@ global:
 scrape_configs:
   - job_name: 'messagarr'
     static_configs:
-      - targets: ['messagarr:8080']
+      - targets: ['messagarr:4545']
         labels:
           service: 'messagarr'

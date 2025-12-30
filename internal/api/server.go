@@ -12,6 +12,7 @@ import (
 	"github.com/eslutz/Messagarr/internal/models"
 	"github.com/eslutz/Messagarr/internal/resilience"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 // Server represents the HTTP server
@@ -22,6 +23,7 @@ type Server struct {
 	metrics           *Metrics
 	prometheusMetrics *prometheusMetrics
 	startTime         time.Time
+	version           string
 }
 
 // Metrics holds server metrics (for backward compatibility)
@@ -33,7 +35,7 @@ type Metrics struct {
 }
 
 // NewServer creates a new HTTP server
-func NewServer(cfg *config.Config) *Server {
+func NewServer(cfg *config.Config, version string) *Server {
 	return &Server{
 		config:            cfg,
 		dispatcher:        channels.NewChannelDispatcher(cfg),
@@ -43,20 +45,22 @@ func NewServer(cfg *config.Config) *Server {
 		},
 		prometheusMetrics: newPrometheusMetrics(),
 		startTime:         time.Now(),
+		version:           version,
 	}
 }
 
 // Router returns the HTTP router
 func (s *Server) Router() http.Handler {
 	mux := http.NewServeMux()
-	
+
 	mux.HandleFunc("/notify", s.instrument("/notify", s.handleNotify))
 	mux.HandleFunc("/health", s.instrument("/health", s.handleHealth))
 	mux.HandleFunc("/ready", s.instrument("/ready", s.handleReady))
 	mux.HandleFunc("/status", s.instrument("/status", s.handleStatus))
+	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
 	mux.Handle("/metrics", promhttp.Handler())
-	
-	return mux
+
+	return s.loggingMiddleware(mux)
 }
 
 // instrument wraps a handler with metrics collection
@@ -64,24 +68,11 @@ func (s *Server) instrument(path string, next http.HandlerFunc) http.HandlerFunc
 	return func(w http.ResponseWriter, r *http.Request) {
 		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		start := time.Now()
-		
-		slog.Info("HTTP request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"remote_addr", r.RemoteAddr,
-		)
-		
+
 		next(recorder, r)
-		
+
 		duration := time.Since(start)
-		
-		slog.Debug("HTTP request completed",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", recorder.status,
-			"duration", duration,
-		)
-		
+
 		if s.prometheusMetrics != nil {
 			s.prometheusMetrics.observeRequest(path, r.Method, recorder.status, duration)
 		}
@@ -103,15 +94,15 @@ func (r *statusRecorder) WriteHeader(statusCode int) {
 func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		slog.Info("HTTP request",
 			"method", r.Method,
 			"path", r.URL.Path,
 			"remote_addr", r.RemoteAddr,
 		)
-		
+
 		next.ServeHTTP(w, r)
-		
+
 		slog.Debug("HTTP request completed",
 			"method", r.Method,
 			"path", r.URL.Path,
@@ -121,6 +112,17 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 }
 
 // handleNotify handles POST /notify
+// @Summary Send a notification
+// @Description Send a notification to one or more channels. Notifications can be routed by priority groups or to specific channels. Duplicates are suppressed within a configurable time window.
+// @Tags notifications
+// @Accept json
+// @Produce json
+// @Param request body models.NotificationRequest true "Notification request"
+// @Success 200 {object} models.NotificationResponse "Notification sent successfully"
+// @Success 207 {object} models.NotificationResponse "Notification partially sent (some channels failed)"
+// @Failure 400 {string} string "Invalid request"
+// @Failure 405 {string} string "Method not allowed"
+// @Router /notify [post]
 func (s *Server) handleNotify(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -182,7 +184,7 @@ func (s *Server) handleNotify(w http.ResponseWriter, r *http.Request) {
 		s.metrics.failedNotifications++
 	}
 	s.metrics.mu.Unlock()
-	
+
 	// Update Prometheus metrics
 	duration := time.Since(start)
 	priority := req.Priority
@@ -213,6 +215,13 @@ func (s *Server) handleNotify(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleHealth handles GET /health
+// @Summary Health check
+// @Description Returns the health status of the service. Used by load balancers and orchestrators for liveness probes.
+// @Tags health
+// @Produce json
+// @Success 200 {object} models.HealthResponse "Service is healthy"
+// @Failure 405 {string} string "Method not allowed"
+// @Router /health [get]
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -222,12 +231,19 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	resp := models.HealthResponse{
 		Status:    "ok",
 		Timestamp: time.Now(),
-		Version:   "1.0.0",
+		Version:   s.version,
 	}
 	s.sendJSON(w, http.StatusOK, resp)
 }
 
 // handleReady handles GET /ready
+// @Summary Readiness check
+// @Description Returns the readiness status of the service. Used by orchestrators to determine if the service is ready to accept traffic.
+// @Tags health
+// @Produce json
+// @Success 200 {object} models.ReadyResponse "Service is ready"
+// @Failure 405 {string} string "Method not allowed"
+// @Router /ready [get]
 func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -254,6 +270,13 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleStatus handles GET /status - JSON status endpoint
+// @Summary Get JSON status
+// @Description Returns basic metrics in JSON format. Use /metrics for Prometheus monitoring.
+// @Tags health
+// @Produce json
+// @Success 200 {object} models.MetricsResponse "Metrics retrieved successfully"
+// @Failure 405 {string} string "Method not allowed"
+// @Router /status [get]
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -268,7 +291,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	totalNotifications := s.metrics.totalNotifications
 	failedNotifications := s.metrics.failedNotifications
 	s.metrics.mu.RUnlock()
-	
+
 	// Update Prometheus uptime metric
 	if s.prometheusMetrics != nil {
 		s.prometheusMetrics.updateUptime(s.startTime)
@@ -309,7 +332,7 @@ func (s *Server) determineChannels(req *models.NotificationRequest) []string {
 }
 
 // sendJSON sends a JSON response
-func (s *Server) sendJSON(w http.ResponseWriter, statusCode int, data interface{}) {
+func (s *Server) sendJSON(w http.ResponseWriter, statusCode int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	if err := json.NewEncoder(w).Encode(data); err != nil {

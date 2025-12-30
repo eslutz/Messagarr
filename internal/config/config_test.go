@@ -22,8 +22,8 @@ func TestInterpolateEnvVars(t *testing.T) {
 		{
 			name:     "Replace $VAR",
 			input:    "port: $TEST_PORT",
-			envVars:  map[string]string{"TEST_PORT": "8080"},
-			expected: "port: 8080",
+			envVars:  map[string]string{"TEST_PORT": "4545"},
+			expected: "port: 4545",
 		},
 		{
 			name:     "No replacement if not found",
@@ -34,8 +34,8 @@ func TestInterpolateEnvVars(t *testing.T) {
 		{
 			name:     "Multiple replacements",
 			input:    "url: ${PROTO}://${HOST}:${PORT}",
-			envVars:  map[string]string{"PROTO": "http", "HOST": "localhost", "PORT": "8080"},
-			expected: "url: http://localhost:8080",
+			envVars:  map[string]string{"PROTO": "http", "HOST": "localhost", "PORT": "4545"},
+			expected: "url: http://localhost:4545",
 		},
 	}
 
@@ -124,8 +124,8 @@ log_level: debug
 dedup_ttl: 10m
 
 channels:
-  test-discord:
-    type: discord
+  - type: discord
+    name: test-discord
     webhook_url: ${TEST_WEBHOOK_URL}
 
 priority_groups:
@@ -170,8 +170,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	// Create a minimal config file
 	configContent := `
 channels:
-  test-discord:
-    type: discord
+  - type: discord
     webhook_url: https://example.com/webhook
 `
 
@@ -195,8 +194,8 @@ channels:
 	}
 
 	// Check defaults
-	if cfg.Port != 8080 {
-		t.Errorf("Expected default port 8080, got %d", cfg.Port)
+	if cfg.Port != 4545 {
+		t.Errorf("Expected default port 4545, got %d", cfg.Port)
 	}
 	if cfg.LogLevel != "info" {
 		t.Errorf("Expected default log level 'info', got %s", cfg.LogLevel)

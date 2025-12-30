@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   messagarr:
     build: .
     container_name: messagarr
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "4545:4545"
     volumes:
       - ./config:/app/config
     environment:
@@ -22,7 +20,7 @@ services:
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
       - TEAMS_WEBHOOK_URL=${TEAMS_WEBHOOK_URL}
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4545/health"]
       interval: 30s
       timeout: 3s
       retries: 3

@@ -165,7 +165,7 @@ delays:    1s, 2s, 4s, 8s (capped at 30s)
 
 **Configuration Schema**:
 ```yaml
-port: 8080
+port: 4545
 log_level: info
 dedup_ttl: 5m
 

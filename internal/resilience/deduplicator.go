@@ -54,7 +54,7 @@ func (d *Deduplicator) IsDuplicate(req *models.NotificationRequest) bool {
 // hash generates a SHA256 hash of the notification
 func (d *Deduplicator) hash(req *models.NotificationRequest) string {
 	// Create a normalized representation for hashing
-	data, _ := json.Marshal(map[string]interface{}{
+	data, _ := json.Marshal(map[string]any{
 		"title":      req.Title,
 		"body":       req.Body,
 		"priority":   req.Priority,

@@ -13,9 +13,35 @@ import (
 	"github.com/eslutz/Messagarr/internal/api"
 	"github.com/eslutz/Messagarr/internal/config"
 	"github.com/eslutz/Messagarr/internal/logger"
+
+	"github.com/eslutz/Messagarr/docs"
 )
 
+// version is set at build time via ldflags
+var version = "dev"
+
+// @title Messagarr API
+// @version {{VERSION}}
+// @description Messagarr is a lightweight notification aggregation service that routes messages to multiple channels (Email, Discord, Slack, Teams) based on priority.
+
+// @contact.name Messagarr Support
+// @contact.url https://github.com/eslutz/Messagarr
+
+// @license.name MIT
+// @license.url https://github.com/eslutz/Messagarr/blob/main/LICENSE
+
+// @host localhost:4545
+// @BasePath /
+
+// @tag.name notifications
+// @tag.description Notification operations
+// @tag.name health
+// @tag.description Health and monitoring endpoints
+
 func main() {
+	// Set swagger version dynamically
+	docs.SwaggerInfo.Version = version
+
 	// Initialize logger
 	logger.Init()
 
@@ -29,10 +55,10 @@ func main() {
 	// Set log level from config
 	logger.SetLevel(cfg.LogLevel)
 
-	slog.Info("Starting Messagarr", "version", "1.0.0")
+	slog.Info("Starting Messagarr", "version", version)
 
 	// Create HTTP server
-	server := api.NewServer(cfg)
+	server := api.NewServer(cfg, version)
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
 		Handler: server.Router(),

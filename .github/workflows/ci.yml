@@ -71,15 +71,39 @@ jobs:
           echo "================================"
           go tool cover -func=coverage.out | tail -1
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          file: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
+      - name: Calculate coverage excluding main
+        run: |
+          # Remove excluded files from coverage profile
+          grep -v "cmd/messagarr/main.go" coverage.out > coverage-filtered.out || true
+
+          # Ensure header is present
+          if ! head -n 1 coverage-filtered.out | grep -q "^mode:"; then
+            head -n 1 coverage.out > temp.out
+            cat coverage-filtered.out >> temp.out
+            mv temp.out coverage-filtered.out
+          fi
+
+      - name: Enforce coverage >= 60%
+        run: |
+          echo ""
+          echo "======================================="
+          echo "Filtered Coverage (excluding files):"
+          echo "  - cmd/messagarr/main.go"
+          echo "======================================="
+          go tool cover -func=coverage-filtered.out | awk '
+            /^total:/ {
+              sub(/%/, "", $3);
+              printf "Coverage: %.1f%%\n\n", $3
+              if ($3 < 60.0) {
+                printf "❌ Coverage below 60%% target: %.1f%%\n", $3
+                exit 1
+              }
+              printf "✓ Coverage meets 60%% requirement (%.1f%%)\n", $3
+            }
+          '
 
   # ----------------------------------------------------------------------------
-  # Lint: Static code analysis
+  # Lint: Code quality checks
   # ----------------------------------------------------------------------------
   lint:
     name: Lint
@@ -93,46 +117,16 @@ jobs:
         with:
           go-version: "1.25"
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
-
-  # ----------------------------------------------------------------------------
-  # Build: Compile binary and Docker image
-  # ----------------------------------------------------------------------------
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.25"
-
-      - name: Build binary
-        run: go build -v ./cmd/messagarr
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          load: true
-          tags: messagarr:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   # ----------------------------------------------------------------------------
   # CodeQL: Static security analysis
   # ----------------------------------------------------------------------------
   codeql:
-    name: CodeQL
+    name: CodeQL Analysis
     runs-on: ubuntu-latest
     permissions:
       security-events: write
@@ -146,42 +140,41 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: go
+          queries: security-extended,security-and-quality
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v4
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:go"
 
   # ----------------------------------------------------------------------------
   # Trivy: Container image vulnerability scanning
   # ----------------------------------------------------------------------------
   trivy:
-    name: Trivy
+    name: Trivy Image Scan
     runs-on: ubuntu-latest
+    needs: [tests, lint, codeql]
     permissions:
-      security-events: write
       contents: read
+      security-events: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Set image name
+        id: image
+        run: echo "name=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          load: true
-          tags: messagarr:scan
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build Docker Image
+        run: docker build -t ${{ steps.image.outputs.name }}:scan .
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: "messagarr:scan"
+          image-ref: "${{ steps.image.outputs.name }}:scan"
           format: "sarif"
           output: "trivy-results.sarif"
           ignore-unfixed: true
@@ -191,5 +184,4 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: "trivy-results.sarif"
-          category: "trivy-container"
-
+          category: "trivy-container-ci"

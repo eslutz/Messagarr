@@ -3,55 +3,88 @@ package models
 import "time"
 
 // NotificationRequest represents an incoming notification request
+// @Description Notification request payload
 type NotificationRequest struct {
-	Title     string            `json:"title"`
-	Body      string            `json:"body"`
-	Priority  string            `json:"priority"`
-	Service   string            `json:"service,omitempty"`
-	EventType string            `json:"event_type,omitempty"`
-	Metadata  map[string]string `json:"metadata,omitempty"`
-	Channels  []string          `json:"channels,omitempty"`
+	// Notification title/subject
+	Title string `json:"title" example:"Deployment Complete"`
+	// Notification body/message
+	Body string `json:"body" example:"Application v1.2.3 deployed to production"`
+	// Priority level (determines which channels receive the notification)
+	Priority string `json:"priority" example:"high" enums:"high,normal,low"`
+	// Name of the service sending the notification
+	Service string `json:"service,omitempty" example:"deployment-service"`
+	// Type of event triggering the notification
+	EventType string `json:"event_type,omitempty" example:"deploy.success"`
+	// Additional key-value metadata
+	Metadata map[string]string `json:"metadata,omitempty"`
+	// Explicit list of channels to send to (overrides priority-based routing)
+	Channels []string `json:"channels,omitempty" example:"discord,email"`
 }
 
 // NotificationResponse represents the response to a notification request
+// @Description Notification response with results per channel
 type NotificationResponse struct {
-	Success  bool              `json:"success"`
-	Message  string            `json:"message"`
-	Results  map[string]Result `json:"results"`
-	Duration string            `json:"duration"`
+	// True if all channels succeeded
+	Success bool `json:"success" example:"true"`
+	// Summary message
+	Message string `json:"message" example:"Notification sent"`
+	// Results per channel
+	Results map[string]Result `json:"results"`
+	// Total time taken to process the notification
+	Duration string `json:"duration" example:"245ms"`
 }
 
 // Result represents the result of sending to a specific channel
+// @Description Result of sending to a single channel
 type Result struct {
-	Success bool   `json:"success"`
-	Error   string `json:"error,omitempty"`
+	// True if this channel succeeded
+	Success bool `json:"success" example:"true"`
+	// Error message if failed
+	Error string `json:"error,omitempty" example:"failed to connect to SMTP server"`
 }
 
 // HealthResponse represents the health check response
+// @Description Health check response
 type HealthResponse struct {
-	Status    string    `json:"status"`
-	Timestamp time.Time `json:"timestamp"`
-	Version   string    `json:"version"`
+	// Health status
+	Status string `json:"status" example:"ok"`
+	// Current server time
+	Timestamp time.Time `json:"timestamp" example:"2025-12-30T01:00:00Z"`
+	// Application version
+	Version string `json:"version" example:"1.0.0-dev.1"`
 }
 
 // ReadyResponse represents the readiness check response
+// @Description Readiness check response
 type ReadyResponse struct {
-	Ready     bool      `json:"ready"`
-	Timestamp time.Time `json:"timestamp"`
-	Checks    []Check   `json:"checks"`
+	// True if service is ready
+	Ready bool `json:"ready" example:"true"`
+	// Current server time
+	Timestamp time.Time `json:"timestamp" example:"2025-12-30T01:00:00Z"`
+	// Individual readiness checks
+	Checks []Check `json:"checks"`
 }
 
 // Check represents an individual readiness check
+// @Description Individual readiness check result
 type Check struct {
-	Name    string `json:"name"`
-	Status  string `json:"status"`
-	Message string `json:"message,omitempty"`
+	// Name of the check
+	Name string `json:"name" example:"config"`
+	// Status of the check
+	Status string `json:"status" example:"ok" enums:"ok,error"`
+	// Additional message (usually for errors)
+	Message string `json:"message,omitempty" example:"Configuration loaded successfully"`
 }
 
 // MetricsResponse represents basic metrics
+// @Description JSON metrics response
 type MetricsResponse struct {
-	TotalNotifications int64             `json:"total_notifications"`
-	FailedNotifications int64            `json:"failed_notifications"`
-	ChannelStats       map[string]int64  `json:"channel_stats"`
-	Uptime             string            `json:"uptime"`
+	// Total number of notifications sent
+	TotalNotifications int64 `json:"total_notifications" example:"1234"`
+	// Total number of failed notifications
+	FailedNotifications int64 `json:"failed_notifications" example:"5"`
+	// Number of successful notifications per channel
+	ChannelStats map[string]int64 `json:"channel_stats"`
+	// Service uptime
+	Uptime string `json:"uptime" example:"24h30m15s"`
 }

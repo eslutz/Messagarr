@@ -21,16 +21,28 @@ A lightweight, self-hosted notification aggregation service that routes messages
 
 ## Quick Start
 
-### Docker Compose
+### Docker Compose (Production)
 
 See [docs/docker-compose.example.yml](docs/docker-compose.example.yml) for a complete setup with Prometheus and Grafana.
+
+### Docker Compose (Development)
+
+For local development and building from source:
+
+```bash
+# Build and run locally
+docker compose -f docker-compose.dev.yml up --build
+
+# Run in background
+docker compose -f docker-compose.dev.yml up -d --build
+```
 
 ### Docker CLI
 
 ```bash
 docker run -d \
   --name messagarr \
-  -p 8080:8080 \
+  -p 4545:4545 \
   -e SMTP_HOST=smtp.example.com \
   -e SMTP_USER=user@example.com \
   -e SMTP_PASSWORD=secret \
@@ -47,41 +59,38 @@ All configuration is done via a YAML file with environment variable interpolatio
 Create `config/messagarr/config.yaml`:
 
 ```yaml
-port: 8080
+port: 4545
 log_level: info
 dedup_ttl: 5m
 
 channels:
-  email:
-    type: smtp
+  - type: smtp
+    name: email
     host: ${SMTP_HOST}
     port: 587
     user: ${SMTP_USER}
     password: ${SMTP_PASSWORD}
     from: ${SMTP_FROM}
     to: ${EMAIL_TO}
-    
-  discord-alerts:
-    type: discord
+
+  - type: discord
     webhook_url: ${DISCORD_WEBHOOK_URL}
-    
-  slack-ops:
-    type: slack
+
+  - type: slack
     webhook_url: ${SLACK_WEBHOOK_URL}
-    
-  teams-infra:
-    type: teams
+
+  - type: teams
     webhook_url: ${TEAMS_WEBHOOK_URL}
 
 priority_groups:
   high:
     - email
-    - discord-alerts
+    - discord
   normal:
-    - discord-alerts
-    - slack-ops
+    - discord
+    - slack
   low:
-    - slack-ops
+    - slack
 ```
 
 ### Environment Variables
@@ -152,6 +161,7 @@ priority_groups:
 | `GET /ready` | Readiness probe | `200 OK` if configured and ready |
 | `GET /status` | Diagnostics | JSON status snapshot |
 | `GET /metrics` | Prometheus metrics | Metrics in OpenMetrics format |
+| `GET /swagger/` | Swagger UI | Interactive API documentation |
 
 ### Endpoint Usage
 
@@ -160,11 +170,12 @@ priority_groups:
 - **/ready**: Readiness probe for Kubernetes/orchestrators
 - **/status**: Manual debugging and monitoring (JSON format)
 - **/metrics**: Prometheus scraper target
+- **/swagger/**: Interactive Swagger UI for testing endpoints
 
 ### Notify Request Example
 
 ```bash
-curl -X POST http://localhost:8080/notify \
+curl -X POST http://localhost:4545/notify \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Deploy Complete",
@@ -180,13 +191,14 @@ curl -X POST http://localhost:8080/notify \
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
   "message": "Notification sent",
   "results": {
     "email": {"success": true},
-    "discord-alerts": {"success": true}
+    "discord": {"success": true}
   },
   "duration": "245ms"
 }
@@ -214,8 +226,8 @@ Supports STARTTLS for secure connections. For Gmail, use an [App Password](https
 
 ```yaml
 channels:
-  email:
-    type: smtp
+  - type: smtp
+    name: email
     host: smtp.gmail.com
     port: 587
     user: ${SMTP_USER}
@@ -230,8 +242,7 @@ Create webhook: Server Settings → Integrations → Webhooks
 
 ```yaml
 channels:
-  discord:
-    type: discord
+  - type: discord
     webhook_url: ${DISCORD_WEBHOOK_URL}
 ```
 
@@ -241,8 +252,7 @@ Create webhook: Workspace Settings → Apps → Incoming Webhooks
 
 ```yaml
 channels:
-  slack:
-    type: slack
+  - type: slack
     webhook_url: ${SLACK_WEBHOOK_URL}
 ```
 
@@ -252,8 +262,7 @@ Create webhook: Channel → Connectors → Incoming Webhook
 
 ```yaml
 channels:
-  teams:
-    type: teams
+  - type: teams
     webhook_url: ${TEAMS_WEBHOOK_URL}
 ```
 
@@ -261,11 +270,24 @@ For detailed setup instructions, see [docs/channels.md](docs/channels.md).
 
 ## Development
 
+### Prerequisites
+
+- Go 1.25+
+- [swag](https://github.com/swaggo/swag) (auto-installed on first build)
+
 ### Building from Source
 
 ```bash
 git clone https://github.com/eslutz/Messagarr.git
 cd Messagarr
+make build    # Regenerates Swagger docs and builds binary
+```
+
+Or manually:
+
+```bash
+go install github.com/swaggo/swag/cmd/swag@latest
+swag init -g cmd/messagarr/main.go -o docs --parseDependency --parseInternal
 go build -o messagarr ./cmd/messagarr
 ```
 
@@ -275,6 +297,14 @@ go build -o messagarr ./cmd/messagarr
 go test ./...                      # Run all tests
 go test -v ./...                   # Run with verbose output
 go test -cover ./...               # Run with coverage
+```
+
+### Regenerating API Documentation
+
+Swagger docs are auto-generated from code annotations. After modifying handlers or models:
+
+```bash
+make docs     # Regenerate docs/swagger.json and docs/swagger.yaml
 ```
 
 ### Docker Build

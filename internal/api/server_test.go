@@ -14,7 +14,7 @@ import (
 
 func TestHealthEndpoint(t *testing.T) {
 	cfg := &config.Config{
-		Port:     8080,
+		Port:     4545,
 		LogLevel: "info",
 		DedupTTL: 5 * time.Minute,
 		Channels: map[string]config.ChannelConfig{
@@ -25,7 +25,7 @@ func TestHealthEndpoint(t *testing.T) {
 		},
 	}
 
-	server := NewServer(cfg)
+	server := NewServer(cfg, "test-version")
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 
@@ -43,14 +43,14 @@ func TestHealthEndpoint(t *testing.T) {
 	if resp.Status != "ok" {
 		t.Errorf("Expected status 'ok', got %s", resp.Status)
 	}
-	if resp.Version != "1.0.0" {
-		t.Errorf("Expected version '1.0.0', got %s", resp.Version)
+	if resp.Version != "test-version" {
+		t.Errorf("Expected version 'test-version', got %s", resp.Version)
 	}
 }
 
 func TestReadyEndpoint(t *testing.T) {
 	cfg := &config.Config{
-		Port:     8080,
+		Port:     4545,
 		LogLevel: "info",
 		DedupTTL: 5 * time.Minute,
 		Channels: map[string]config.ChannelConfig{
@@ -61,7 +61,7 @@ func TestReadyEndpoint(t *testing.T) {
 		},
 	}
 
-	server := NewServer(cfg)
+	server := NewServer(cfg, "test")
 	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
 	w := httptest.NewRecorder()
 
@@ -83,7 +83,7 @@ func TestReadyEndpoint(t *testing.T) {
 
 func TestStatusEndpoint(t *testing.T) {
 	cfg := &config.Config{
-		Port:     8080,
+		Port:     4545,
 		LogLevel: "info",
 		DedupTTL: 5 * time.Minute,
 		Channels: map[string]config.ChannelConfig{
@@ -94,7 +94,7 @@ func TestStatusEndpoint(t *testing.T) {
 		},
 	}
 
-	server := NewServer(cfg)
+	server := NewServer(cfg, "test")
 	req := httptest.NewRequest(http.MethodGet, "/status", nil)
 	w := httptest.NewRecorder()
 
@@ -116,7 +116,7 @@ func TestStatusEndpoint(t *testing.T) {
 
 func TestNotifyEndpointValidation(t *testing.T) {
 	cfg := &config.Config{
-		Port:     8080,
+		Port:     4545,
 		LogLevel: "info",
 		DedupTTL: 5 * time.Minute,
 		Channels: map[string]config.ChannelConfig{
@@ -127,12 +127,12 @@ func TestNotifyEndpointValidation(t *testing.T) {
 		},
 	}
 
-	server := NewServer(cfg)
+	server := NewServer(cfg, "test")
 
 	tests := []struct {
 		name           string
 		method         string
-		payload        interface{}
+		payload        any
 		expectedStatus int
 	}{
 		{
@@ -191,7 +191,7 @@ func TestNotifyEndpointSuccess(t *testing.T) {
 	defer webhookServer.Close()
 
 	cfg := &config.Config{
-		Port:     8080,
+		Port:     4545,
 		LogLevel: "info",
 		DedupTTL: 5 * time.Minute,
 		Channels: map[string]config.ChannelConfig{
@@ -205,7 +205,7 @@ func TestNotifyEndpointSuccess(t *testing.T) {
 		},
 	}
 
-	server := NewServer(cfg)
+	server := NewServer(cfg, "test")
 
 	notifReq := models.NotificationRequest{
 		Title:    "Test",
@@ -241,7 +241,7 @@ func TestNotifyEndpointDuplicate(t *testing.T) {
 	defer webhookServer.Close()
 
 	cfg := &config.Config{
-		Port:     8080,
+		Port:     4545,
 		LogLevel: "info",
 		DedupTTL: 5 * time.Minute,
 		Channels: map[string]config.ChannelConfig{
@@ -255,7 +255,7 @@ func TestNotifyEndpointDuplicate(t *testing.T) {
 		},
 	}
 
-	server := NewServer(cfg)
+	server := NewServer(cfg, "test")
 
 	notifReq := models.NotificationRequest{
 		Title:    "Test Duplicate",
@@ -295,14 +295,14 @@ func TestNotifyEndpointDuplicate(t *testing.T) {
 
 func TestNotifyEndpointNoChannels(t *testing.T) {
 	cfg := &config.Config{
-		Port:           8080,
+		Port:           4545,
 		LogLevel:       "info",
 		DedupTTL:       5 * time.Minute,
 		Channels:       map[string]config.ChannelConfig{},
 		PriorityGroups: map[string][]string{},
 	}
 
-	server := NewServer(cfg)
+	server := NewServer(cfg, "test")
 
 	notifReq := models.NotificationRequest{
 		Title: "Test",
@@ -322,7 +322,7 @@ func TestNotifyEndpointNoChannels(t *testing.T) {
 
 func TestDetermineChannels(t *testing.T) {
 	cfg := &config.Config{
-		Port:     8080,
+		Port:     4545,
 		LogLevel: "info",
 		DedupTTL: 5 * time.Minute,
 		Channels: map[string]config.ChannelConfig{
@@ -347,7 +347,7 @@ func TestDetermineChannels(t *testing.T) {
 		},
 	}
 
-	server := NewServer(cfg)
+	server := NewServer(cfg, "test")
 
 	tests := []struct {
 		name     string

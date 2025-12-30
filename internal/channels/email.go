@@ -4,10 +4,25 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/smtp"
+	"regexp"
+	"strings"
 
 	"github.com/eslutz/Messagarr/internal/config"
 	"github.com/eslutz/Messagarr/internal/models"
 )
+
+// multiSpaceRegex matches multiple consecutive spaces
+var multiSpaceRegex = regexp.MustCompile(`\s+`)
+
+// sanitize cleans a string for safe use in email headers and body
+func sanitize(s string) string {
+	s = strings.ReplaceAll(s, "\x00", "")         // Remove null bytes
+	s = strings.ReplaceAll(s, "\r", " ")          // Replace carriage returns with space
+	s = strings.ReplaceAll(s, "\n", " ")          // Replace newlines with space
+	s = multiSpaceRegex.ReplaceAllString(s, " ")  // Collapse multiple spaces into one
+	s = strings.TrimSpace(s)                      // Remove leading and trailing whitespace
+	return s
+}
 
 // EmailDispatcher sends notifications via SMTP
 type EmailDispatcher struct {
@@ -31,29 +46,30 @@ func (e *EmailDispatcher) Name() string {
 // Send sends an email notification
 func (e *EmailDispatcher) Send(req *models.NotificationRequest) error {
 	// Build email message
-	subject := req.Title
+	subject := sanitize(req.Title)
 	if subject == "" {
 		subject = "Notification from Messagarr"
 	}
 
-	message := fmt.Sprintf("From: %s\r\n", e.config.From)
-	message += fmt.Sprintf("To: %s\r\n", e.config.To)
-	message += fmt.Sprintf("Subject: %s\r\n", subject)
-	message += "Content-Type: text/plain; charset=utf-8\r\n"
-	message += "\r\n"
-	message += req.Body
+	var message strings.Builder
+	fmt.Fprintf(&message, "From: %s\r\n", e.config.From)
+	fmt.Fprintf(&message, "To: %s\r\n", e.config.To)
+	fmt.Fprintf(&message, "Subject: %s\r\n", subject)
+	message.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
+	message.WriteString("\r\n")
+	message.WriteString(sanitize(req.Body))
 
 	// Add metadata if present
 	if len(req.Metadata) > 0 {
-		message += "\n\n--- Metadata ---\n"
+		message.WriteString("\n\n--- Metadata ---\n")
 		for k, v := range req.Metadata {
-			message += fmt.Sprintf("%s: %s\n", k, v)
+			fmt.Fprintf(&message, "%s: %s\n", sanitize(k), sanitize(v))
 		}
 	}
 
 	// Connect to SMTP server
 	addr := fmt.Sprintf("%s:%d", e.config.Host, e.config.Port)
-	
+
 	// Attempt TLS connection
 	tlsConfig := &tls.Config{
 		ServerName: e.config.Host,
@@ -95,7 +111,7 @@ func (e *EmailDispatcher) Send(req *models.NotificationRequest) error {
 		return fmt.Errorf("failed to open data writer: %w", err)
 	}
 
-	_, err = w.Write([]byte(message))
+	_, err = w.Write([]byte(message.String()))
 	if err != nil {
 		w.Close()
 		return fmt.Errorf("failed to write message: %w", err)

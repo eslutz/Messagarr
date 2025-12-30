@@ -33,7 +33,7 @@ func (s *SlackDispatcher) Name() string {
 type SlackWebhook struct {
 	Text        string        `json:"text,omitempty"`
 	Blocks      []SlackBlock  `json:"blocks,omitempty"`
-	Attachments []interface{} `json:"attachments,omitempty"`
+	Attachments []any         `json:"attachments,omitempty"`
 }
 
 // SlackBlock represents a Slack block
@@ -41,7 +41,7 @@ type SlackBlock struct {
 	Type   string                 `json:"type"`
 	Text   *SlackText             `json:"text,omitempty"`
 	Fields []SlackText            `json:"fields,omitempty"`
-	Extra  map[string]interface{} `json:"-"`
+	Extra  map[string]any         `json:"-"`
 }
 
 // SlackText represents Slack text
@@ -79,7 +79,7 @@ func (s *SlackDispatcher) Send(req *models.NotificationRequest) error {
 	// Add metadata as fields
 	if len(req.Metadata) > 0 || req.Service != "" || req.EventType != "" {
 		fields := []SlackText{}
-		
+
 		if req.Service != "" {
 			fields = append(fields, SlackText{
 				Type: "mrkdwn",
@@ -92,14 +92,14 @@ func (s *SlackDispatcher) Send(req *models.NotificationRequest) error {
 				Text: fmt.Sprintf("*Event Type:*\n%s", req.EventType),
 			})
 		}
-		
+
 		for k, v := range req.Metadata {
 			fields = append(fields, SlackText{
 				Type: "mrkdwn",
 				Text: fmt.Sprintf("*%s:*\n%s", k, v),
 			})
 		}
-		
+
 		if len(fields) > 0 {
 			blocks = append(blocks, SlackBlock{
 				Type:   "section",

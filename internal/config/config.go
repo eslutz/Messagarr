@@ -12,16 +12,18 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Port           int                       `yaml:"port"`
-	LogLevel       string                    `yaml:"log_level"`
-	DedupTTL       time.Duration             `yaml:"dedup_ttl"`
-	Channels       map[string]ChannelConfig  `yaml:"channels"`
-	PriorityGroups map[string][]string       `yaml:"priority_groups"`
+	Port           int                      `yaml:"port"`
+	LogLevel       string                   `yaml:"log_level"`
+	DedupTTL       time.Duration            `yaml:"dedup_ttl"`
+	ChannelsList   []ChannelConfig          `yaml:"channels"`
+	Channels       map[string]ChannelConfig `yaml:"-"` // Built from ChannelsList
+	PriorityGroups map[string][]string      `yaml:"priority_groups"`
 }
 
 // ChannelConfig represents a notification channel configuration
 type ChannelConfig struct {
 	Type       string            `yaml:"type"`
+	Name       string            `yaml:"name,omitempty"` // Optional: defaults to Type
 	Host       string            `yaml:"host,omitempty"`
 	Port       int               `yaml:"port,omitempty"`
 	User       string            `yaml:"user,omitempty"`
@@ -30,6 +32,14 @@ type ChannelConfig struct {
 	To         string            `yaml:"to,omitempty"`
 	WebhookURL string            `yaml:"webhook_url,omitempty"`
 	Metadata   map[string]string `yaml:"metadata,omitempty"`
+}
+
+// GetName returns the channel's name (defaults to type if not specified)
+func (c *ChannelConfig) GetName() string {
+	if c.Name != "" {
+		return c.Name
+	}
+	return c.Type
 }
 
 // Load reads and parses the configuration file
@@ -54,13 +64,23 @@ func Load() (*Config, error) {
 
 	// Set defaults
 	if cfg.Port == 0 {
-		cfg.Port = 8080
+		cfg.Port = 4545
 	}
 	if cfg.LogLevel == "" {
 		cfg.LogLevel = "info"
 	}
 	if cfg.DedupTTL == 0 {
 		cfg.DedupTTL = 5 * time.Minute
+	}
+
+	// Build channels map from list (name defaults to type)
+	cfg.Channels = make(map[string]ChannelConfig)
+	for _, channel := range cfg.ChannelsList {
+		name := channel.GetName()
+		if _, exists := cfg.Channels[name]; exists {
+			return nil, fmt.Errorf("duplicate channel name: %s (use 'name' field to differentiate)", name)
+		}
+		cfg.Channels[name] = channel
 	}
 
 	// Validate configuration
@@ -109,6 +129,10 @@ func (c *Config) Validate() error {
 
 // validateChannel validates a single channel configuration
 func validateChannel(name string, channel ChannelConfig) error {
+	if channel.Type == "" {
+		return fmt.Errorf("channel %s: type is required", name)
+	}
+
 	switch channel.Type {
 	case "smtp":
 		if channel.Host == "" {
@@ -137,18 +161,18 @@ func validateChannel(name string, channel ChannelConfig) error {
 func interpolateEnvVars(s string) string {
 	// Match ${VAR} or $VAR patterns
 	re := regexp.MustCompile(`\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)`)
-	
+
 	return re.ReplaceAllStringFunc(s, func(match string) string {
 		// Extract variable name
 		varName := strings.TrimPrefix(match, "$")
 		varName = strings.TrimPrefix(varName, "{")
 		varName = strings.TrimSuffix(varName, "}")
-		
+
 		// Get environment variable value
 		if value := os.Getenv(varName); value != "" {
 			return value
 		}
-		
+
 		// Return original if not found
 		return match
 	})

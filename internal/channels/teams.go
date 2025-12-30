@@ -43,19 +43,19 @@ type TeamsAttachment struct {
 
 // TeamsCard represents an adaptive card
 type TeamsCard struct {
-	Schema  string                   `json:"$schema"`
-	Type    string                   `json:"type"`
-	Version string                   `json:"version"`
-	Body    []map[string]interface{} `json:"body"`
+	Schema  string           `json:"$schema"`
+	Type    string           `json:"type"`
+	Version string           `json:"version"`
+	Body    []map[string]any `json:"body"`
 }
 
 // Send sends a Teams notification
 func (t *TeamsDispatcher) Send(req *models.NotificationRequest) error {
-	body := []map[string]interface{}{}
+	body := []map[string]any{}
 
 	// Add title
 	if req.Title != "" {
-		body = append(body, map[string]interface{}{
+		body = append(body, map[string]any{
 			"type":   "TextBlock",
 			"text":   req.Title,
 			"weight": "Bolder",
@@ -65,7 +65,7 @@ func (t *TeamsDispatcher) Send(req *models.NotificationRequest) error {
 
 	// Add body text
 	if req.Body != "" {
-		body = append(body, map[string]interface{}{
+		body = append(body, map[string]any{
 			"type": "TextBlock",
 			"text": req.Body,
 			"wrap": true,
@@ -100,7 +100,7 @@ func (t *TeamsDispatcher) Send(req *models.NotificationRequest) error {
 	}
 
 	if len(facts) > 0 {
-		body = append(body, map[string]interface{}{
+		body = append(body, map[string]any{
 			"type":  "FactSet",
 			"facts": facts,
 		})

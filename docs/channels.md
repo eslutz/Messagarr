@@ -23,10 +23,11 @@ This guide will help you configure each notification channel in Messagarr.
    - Copy the generated 16-character password
 
 3. **Configuration**
+
    ```yaml
    channels:
-     email:
-       type: smtp
+     - type: smtp
+       name: email
        host: smtp.gmail.com
        port: 587
        user: your-email@gmail.com
@@ -36,6 +37,7 @@ This guide will help you configure each notification channel in Messagarr.
    ```
 
 4. **Environment Variables**
+
    ```bash
    SMTP_HOST=smtp.gmail.com
    SMTP_PORT=587
@@ -48,18 +50,21 @@ This guide will help you configure each notification channel in Messagarr.
 ### Other SMTP Providers
 
 #### Outlook/Office 365
+
 ```yaml
 host: smtp.office365.com
 port: 587
 ```
 
 #### Yahoo Mail
+
 ```yaml
 host: smtp.mail.yahoo.com
 port: 587
 ```
 
 #### Custom SMTP Server
+
 ```yaml
 host: mail.example.com
 port: 587  # or 465 for SSL, 25 for non-encrypted
@@ -68,7 +73,7 @@ port: 587  # or 465 for SSL, 25 for non-encrypted
 ### Testing
 
 ```bash
-curl -X POST http://localhost:8080/notify \
+curl -X POST http://localhost:4545/notify \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Email Test",
@@ -95,14 +100,15 @@ curl -X POST http://localhost:8080/notify \
    - Copy the webhook URL
 
 3. **Configuration**
+
    ```yaml
    channels:
-     discord-alerts:
-       type: discord
+     - type: discord
        webhook_url: ${DISCORD_WEBHOOK_URL}
    ```
 
 4. **Environment Variables**
+
    ```bash
    DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/123456789/abcdefghijklmnopqrstuvwxyz
    ```
@@ -117,7 +123,7 @@ curl -X POST http://localhost:8080/notify \
 ### Testing
 
 ```bash
-curl -X POST http://localhost:8080/notify \
+curl -X POST http://localhost:4545/notify \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Discord Test",
@@ -125,9 +131,9 @@ curl -X POST http://localhost:8080/notify \
     "priority": "high",
     "metadata": {
       "server": "production",
-      "version": "1.0.0"
+      "app_version": "1.2.3"
     },
-    "channels": ["discord-alerts"]
+    "channels": ["discord"]
   }'
 ```
 
@@ -158,14 +164,15 @@ curl -X POST http://localhost:8080/notify \
    - Copy the webhook URL (starts with `https://hooks.slack.com/services/`)
 
 4. **Configuration**
+
    ```yaml
    channels:
-     slack-ops:
-       type: slack
+     - type: slack
        webhook_url: ${SLACK_WEBHOOK_URL}
    ```
 
 5. **Environment Variables**
+
    ```bash
    SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXX
    ```
@@ -180,14 +187,14 @@ curl -X POST http://localhost:8080/notify \
 ### Testing
 
 ```bash
-curl -X POST http://localhost:8080/notify \
+curl -X POST http://localhost:4545/notify \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Slack Test",
     "body": "Testing Slack notifications from Messagarr",
     "service": "test-service",
     "event_type": "test.notification",
-    "channels": ["slack-ops"]
+    "channels": ["slack"]
   }'
 ```
 
@@ -218,14 +225,15 @@ curl -X POST http://localhost:8080/notify \
    - Copy the webhook URL
 
 4. **Configuration**
+
    ```yaml
    channels:
-     teams-infra:
-       type: teams
+     - type: teams
        webhook_url: ${TEAMS_WEBHOOK_URL}
    ```
 
 5. **Environment Variables**
+
    ```bash
    TEAMS_WEBHOOK_URL=https://outlook.office.com/webhook/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx@xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/IncomingWebhook/yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy/zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz
    ```
@@ -240,7 +248,7 @@ curl -X POST http://localhost:8080/notify \
 ### Testing
 
 ```bash
-curl -X POST http://localhost:8080/notify \
+curl -X POST http://localhost:4545/notify \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Teams Test",
@@ -252,7 +260,7 @@ curl -X POST http://localhost:8080/notify \
       "environment": "development",
       "timestamp": "2025-12-30T01:00:00Z"
     },
-    "channels": ["teams-infra"]
+    "channels": ["teams"]
   }'
 ```
 
@@ -270,18 +278,18 @@ Instead of specifying channels explicitly, you can use priority groups to automa
 priority_groups:
   high:
     - email
-    - discord-alerts
+    - discord
   normal:
-    - discord-alerts
-    - slack-ops
+    - discord
+    - slack
   low:
-    - slack-ops
+    - slack
 ```
 
 Then send notifications with priority:
 
 ```bash
-curl -X POST http://localhost:8080/notify \
+curl -X POST http://localhost:4545/notify \
   -H "Content-Type: application/json" \
   -d '{
     "title": "High Priority Alert",
@@ -290,7 +298,7 @@ curl -X POST http://localhost:8080/notify \
   }'
 ```
 
-This will send to both `email` and `discord-alerts` channels.
+This will send to both `email` and `discord` channels.
 
 ## Troubleshooting
 
@@ -299,6 +307,7 @@ This will send to both `email` and `discord-alerts` channels.
 **Problem**: Notifications not being sent
 
 **Solutions**:
+
 - Check logs: `docker-compose logs messagarr`
 - Verify environment variables are set
 - Test webhook URLs manually
@@ -309,6 +318,7 @@ This will send to both `email` and `discord-alerts` channels.
 **Problem**: Authentication failed
 
 **Solutions**:
+
 - Verify username/password
 - Use app password instead of account password
 - Check 2FA settings
@@ -317,6 +327,7 @@ This will send to both `email` and `discord-alerts` channels.
 **Problem**: Connection timeout
 
 **Solutions**:
+
 - Check SMTP host and port
 - Verify firewall allows outbound SMTP
 - Try different ports (25, 465, 587)
@@ -326,6 +337,7 @@ This will send to both `email` and `discord-alerts` channels.
 **Problem**: Webhook not found
 
 **Solutions**:
+
 - Regenerate webhook in Discord
 - Ensure webhook URL is complete
 - Check channel permissions
@@ -333,6 +345,7 @@ This will send to both `email` and `discord-alerts` channels.
 **Problem**: Rate limited
 
 **Solutions**:
+
 - Reduce notification frequency
 - Increase `dedup_ttl` in config
 - Check Discord rate limits (5 requests/2 seconds)
@@ -342,6 +355,7 @@ This will send to both `email` and `discord-alerts` channels.
 **Problem**: "no_service" error
 
 **Solutions**:
+
 - Recreate webhook
 - Check workspace permissions
 - Verify app is installed in workspace
@@ -349,6 +363,7 @@ This will send to both `email` and `discord-alerts` channels.
 **Problem**: "channel_not_found"
 
 **Solutions**:
+
 - Reinstall webhook in correct channel
 - Check channel still exists
 - Verify app has channel access
@@ -358,6 +373,7 @@ This will send to both `email` and `discord-alerts` channels.
 **Problem**: Webhook expired
 
 **Solutions**:
+
 - Webhooks expire after 90 days of inactivity
 - Regenerate webhook in Teams
 - Update environment variable
@@ -365,6 +381,7 @@ This will send to both `email` and `discord-alerts` channels.
 **Problem**: "invalid payload"
 
 **Solutions**:
+
 - Check Messagarr logs for validation errors
 - Verify adaptive card format
 - Test with simple notification first

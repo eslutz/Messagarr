@@ -1,4 +1,4 @@
-.PHONY: help build test lint clean run docker-build docker-run install coverage
+.PHONY: help build test lint clean run docker-build docker-run install coverage docs
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -6,9 +6,19 @@ help: ## Show this help message
 	@echo 'Available targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-build: ## Build the application
-	@echo "Building Messagarr..."
-	go build -o messagarr ./cmd/messagarr
+VERSION := $(shell cat VERSION 2>/dev/null || echo "dev")
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+LDFLAGS := -ldflags "-w -s -X main.version=$(VERSION)"
+
+docs: ## Generate Swagger documentation
+	@echo "Generating Swagger docs..."
+	@command -v swag >/dev/null 2>&1 || go install github.com/swaggo/swag/cmd/swag@latest
+	swag init -g cmd/messagarr/main.go -o docs --parseDependency --parseInternal
+
+build: docs ## Build the application (regenerates docs first)
+	@echo "Building Messagarr v$(VERSION)..."
+	go build $(LDFLAGS) -o messagarr ./cmd/messagarr
 
 install: ## Install dependencies
 	@echo "Installing dependencies..."
