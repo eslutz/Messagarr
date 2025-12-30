@@ -24,7 +24,7 @@ func TestDiscordDispatcher(t *testing.T) {
 		WebhookURL: server.URL,
 	}
 
-	dispatcher := NewDiscordDispatcher("test-discord", cfg)
+	dispatcher := NewDiscordDispatcher("test-discord", &cfg)
 
 	req := &models.NotificationRequest{
 		Title:    "Test Notification",
@@ -56,7 +56,7 @@ func TestSlackDispatcher(t *testing.T) {
 		WebhookURL: server.URL,
 	}
 
-	dispatcher := NewSlackDispatcher("test-slack", cfg)
+	dispatcher := NewSlackDispatcher("test-slack", &cfg)
 
 	req := &models.NotificationRequest{
 		Title:    "Test Notification",
@@ -86,7 +86,7 @@ func TestTeamsDispatcher(t *testing.T) {
 		WebhookURL: server.URL,
 	}
 
-	dispatcher := NewTeamsDispatcher("test-teams", cfg)
+	dispatcher := NewTeamsDispatcher("test-teams", &cfg)
 
 	req := &models.NotificationRequest{
 		Title:     "Test Notification",
@@ -177,7 +177,7 @@ func TestEmailDispatcherName(t *testing.T) {
 		To:   "receiver@example.com",
 	}
 
-	dispatcher := NewEmailDispatcher("test-email", cfg)
+	dispatcher := NewEmailDispatcher("test-email", &cfg)
 
 	if dispatcher.Name() != "test-email" {
 		t.Errorf("Expected name 'test-email', got %s", dispatcher.Name())
@@ -190,7 +190,7 @@ func TestDiscordGetColor(t *testing.T) {
 		WebhookURL: "http://example.com/webhook",
 	}
 
-	dispatcher := NewDiscordDispatcher("test-discord", cfg)
+	dispatcher := NewDiscordDispatcher("test-discord", &cfg)
 
 	tests := []struct {
 		priority string
@@ -211,4 +211,3 @@ func TestDiscordGetColor(t *testing.T) {
 		})
 	}
 }
-

@@ -1,7 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Messagarr is a lightweight notification aggregation service that routes messages to multiple channels (Email, Discord, Slack, Teams) based on priority.",
+        "description": "Messagarr is a lightweight notification aggregation service that routes messages\nto multiple channels (Email, Discord, Slack, Teams) based on priority.",
         "title": "Messagarr API",
         "contact": {
             "name": "Messagarr Support",
@@ -44,7 +44,7 @@
         },
         "/notify": {
             "post": {
-                "description": "Send a notification to one or more channels. Notifications can be routed by priority groups or to specific channels. Duplicates are suppressed within a configurable time window.",
+                "description": "Send a notification to one or more channels. Notifications can be routed by priority\ngroups or to specific channels. Duplicates are suppressed within a configurable time window.",
                 "consumes": [
                     "application/json"
                 ],
@@ -239,7 +239,7 @@
                         "type": "string"
                     },
                     "example": [
-                        "discord-alerts",
+                        "discord",
                         "email"
                     ]
                 },

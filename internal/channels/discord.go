@@ -12,15 +12,15 @@ import (
 
 // DiscordDispatcher sends notifications to Discord via webhooks
 type DiscordDispatcher struct {
+	config *config.ChannelConfig
 	name   string
-	config config.ChannelConfig
 }
 
 // NewDiscordDispatcher creates a new Discord dispatcher
-func NewDiscordDispatcher(name string, cfg config.ChannelConfig) *DiscordDispatcher {
+func NewDiscordDispatcher(name string, cfg *config.ChannelConfig) *DiscordDispatcher {
 	return &DiscordDispatcher{
-		name:   name,
 		config: cfg,
+		name:   name,
 	}
 }
 
@@ -31,16 +31,16 @@ func (d *DiscordDispatcher) Name() string {
 
 // DiscordWebhook represents a Discord webhook payload
 type DiscordWebhook struct {
-	Content string          `json:"content,omitempty"`
-	Embeds  []DiscordEmbed  `json:"embeds,omitempty"`
+	Content string         `json:"content,omitempty"`
+	Embeds  []DiscordEmbed `json:"embeds,omitempty"`
 }
 
 // DiscordEmbed represents a Discord embed
 type DiscordEmbed struct {
 	Title       string              `json:"title,omitempty"`
 	Description string              `json:"description,omitempty"`
-	Color       int                 `json:"color,omitempty"`
 	Fields      []DiscordEmbedField `json:"fields,omitempty"`
+	Color       int                 `json:"color,omitempty"`
 }
 
 // DiscordEmbedField represents a field in a Discord embed
@@ -98,10 +98,10 @@ func (d *DiscordDispatcher) Send(req *models.NotificationRequest) error {
 	if err != nil {
 		return fmt.Errorf("failed to send Discord webhook: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("Discord webhook returned status %d", resp.StatusCode)
+		return fmt.Errorf("discord webhook returned status %d", resp.StatusCode)
 	}
 
 	return nil

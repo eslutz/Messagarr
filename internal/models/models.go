@@ -24,23 +24,23 @@ type NotificationRequest struct {
 // NotificationResponse represents the response to a notification request
 // @Description Notification response with results per channel
 type NotificationResponse struct {
-	// True if all channels succeeded
-	Success bool `json:"success" example:"true"`
-	// Summary message
-	Message string `json:"message" example:"Notification sent"`
 	// Results per channel
 	Results map[string]Result `json:"results"`
+	// Summary message
+	Message string `json:"message" example:"Notification sent"`
 	// Total time taken to process the notification
 	Duration string `json:"duration" example:"245ms"`
+	// True if all channels succeeded
+	Success bool `json:"success" example:"true"`
 }
 
 // Result represents the result of sending to a specific channel
 // @Description Result of sending to a single channel
 type Result struct {
-	// True if this channel succeeded
-	Success bool `json:"success" example:"true"`
 	// Error message if failed
 	Error string `json:"error,omitempty" example:"failed to connect to SMTP server"`
+	// True if this channel succeeded
+	Success bool `json:"success" example:"true"`
 }
 
 // HealthResponse represents the health check response
@@ -57,12 +57,12 @@ type HealthResponse struct {
 // ReadyResponse represents the readiness check response
 // @Description Readiness check response
 type ReadyResponse struct {
-	// True if service is ready
-	Ready bool `json:"ready" example:"true"`
 	// Current server time
 	Timestamp time.Time `json:"timestamp" example:"2025-12-30T01:00:00Z"`
 	// Individual readiness checks
 	Checks []Check `json:"checks"`
+	// True if service is ready
+	Ready bool `json:"ready" example:"true"`
 }
 
 // Check represents an individual readiness check
@@ -79,12 +79,12 @@ type Check struct {
 // MetricsResponse represents basic metrics
 // @Description JSON metrics response
 type MetricsResponse struct {
-	// Total number of notifications sent
-	TotalNotifications int64 `json:"total_notifications" example:"1234"`
-	// Total number of failed notifications
-	FailedNotifications int64 `json:"failed_notifications" example:"5"`
 	// Number of successful notifications per channel
 	ChannelStats map[string]int64 `json:"channel_stats"`
 	// Service uptime
 	Uptime string `json:"uptime" example:"24h30m15s"`
+	// Total number of notifications sent
+	TotalNotifications int64 `json:"total_notifications" example:"1234"`
+	// Total number of failed notifications
+	FailedNotifications int64 `json:"failed_notifications" example:"5"`
 }

@@ -31,17 +31,18 @@ func NewChannelDispatcher(cfg *config.Config) *ChannelDispatcher {
 	}
 
 	// Initialize channels based on config
-	for name, channelCfg := range cfg.Channels {
+	for name := range cfg.Channels {
+		channelCfg := cfg.Channels[name]
 		var dispatcher Dispatcher
 		switch channelCfg.Type {
 		case "smtp":
-			dispatcher = NewEmailDispatcher(name, channelCfg)
+			dispatcher = NewEmailDispatcher(name, &channelCfg)
 		case "discord":
-			dispatcher = NewDiscordDispatcher(name, channelCfg)
+			dispatcher = NewDiscordDispatcher(name, &channelCfg)
 		case "slack":
-			dispatcher = NewSlackDispatcher(name, channelCfg)
+			dispatcher = NewSlackDispatcher(name, &channelCfg)
 		case "teams":
-			dispatcher = NewTeamsDispatcher(name, channelCfg)
+			dispatcher = NewTeamsDispatcher(name, &channelCfg)
 		default:
 			slog.Warn("Unknown channel type", "channel", name, "type", channelCfg.Type)
 			continue

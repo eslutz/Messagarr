@@ -12,15 +12,15 @@ import (
 
 // SlackDispatcher sends notifications to Slack via webhooks
 type SlackDispatcher struct {
+	config *config.ChannelConfig
 	name   string
-	config config.ChannelConfig
 }
 
 // NewSlackDispatcher creates a new Slack dispatcher
-func NewSlackDispatcher(name string, cfg config.ChannelConfig) *SlackDispatcher {
+func NewSlackDispatcher(name string, cfg *config.ChannelConfig) *SlackDispatcher {
 	return &SlackDispatcher{
-		name:   name,
 		config: cfg,
+		name:   name,
 	}
 }
 
@@ -31,17 +31,17 @@ func (s *SlackDispatcher) Name() string {
 
 // SlackWebhook represents a Slack webhook payload
 type SlackWebhook struct {
-	Text        string        `json:"text,omitempty"`
-	Blocks      []SlackBlock  `json:"blocks,omitempty"`
-	Attachments []any         `json:"attachments,omitempty"`
+	Text        string       `json:"text,omitempty"`
+	Blocks      []SlackBlock `json:"blocks,omitempty"`
+	Attachments []any        `json:"attachments,omitempty"`
 }
 
 // SlackBlock represents a Slack block
 type SlackBlock struct {
-	Type   string                 `json:"type"`
-	Text   *SlackText             `json:"text,omitempty"`
-	Fields []SlackText            `json:"fields,omitempty"`
-	Extra  map[string]any         `json:"-"`
+	Extra  map[string]any `json:"-"`
+	Text   *SlackText     `json:"text,omitempty"`
+	Type   string         `json:"type"`
+	Fields []SlackText    `json:"fields,omitempty"`
 }
 
 // SlackText represents Slack text
@@ -121,10 +121,10 @@ func (s *SlackDispatcher) Send(req *models.NotificationRequest) error {
 	if err != nil {
 		return fmt.Errorf("failed to send Slack webhook: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("Slack webhook returned status %d", resp.StatusCode)
+		return fmt.Errorf("slack webhook returned status %d", resp.StatusCode)
 	}
 
 	return nil

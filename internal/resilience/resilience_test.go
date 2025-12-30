@@ -88,12 +88,12 @@ func TestRateLimiter(t *testing.T) {
 	rl := NewRateLimiter(2, 10) // 2 capacity, 10 per second
 
 	channel := "test"
-	
+
 	// Should allow first request immediately
 	start := time.Now()
 	rl.Wait(channel)
 	duration := time.Since(start)
-	
+
 	if duration > 10*time.Millisecond {
 		t.Errorf("First request took too long: %v", duration)
 	}
@@ -102,7 +102,7 @@ func TestRateLimiter(t *testing.T) {
 	start = time.Now()
 	rl.Wait(channel)
 	duration = time.Since(start)
-	
+
 	if duration > 10*time.Millisecond {
 		t.Errorf("Second request took too long: %v", duration)
 	}
@@ -111,7 +111,7 @@ func TestRateLimiter(t *testing.T) {
 	start = time.Now()
 	rl.Wait(channel)
 	duration = time.Since(start)
-	
+
 	if duration < 50*time.Millisecond {
 		t.Errorf("Third request should have waited, but took only: %v", duration)
 	}

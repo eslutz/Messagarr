@@ -26,7 +26,7 @@ func TestHealthEndpoint(t *testing.T) {
 	}
 
 	server := NewServer(cfg, "test-version")
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	server.handleHealth(w, req)
@@ -62,7 +62,7 @@ func TestReadyEndpoint(t *testing.T) {
 	}
 
 	server := NewServer(cfg, "test")
-	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ready", http.NoBody)
 	w := httptest.NewRecorder()
 
 	server.handleReady(w, req)
@@ -95,7 +95,7 @@ func TestStatusEndpoint(t *testing.T) {
 	}
 
 	server := NewServer(cfg, "test")
-	req := httptest.NewRequest(http.MethodGet, "/status", nil)
+	req := httptest.NewRequest(http.MethodGet, "/status", http.NoBody)
 	w := httptest.NewRecorder()
 
 	server.handleStatus(w, req)
@@ -131,8 +131,8 @@ func TestNotifyEndpointValidation(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		method         string
 		payload        any
+		method         string
 		expectedStatus int
 	}{
 		{
@@ -142,9 +142,9 @@ func TestNotifyEndpointValidation(t *testing.T) {
 			expectedStatus: http.StatusMethodNotAllowed,
 		},
 		{
-			name:   "Invalid JSON",
-			method: http.MethodPost,
-			payload: "invalid json",
+			name:           "Invalid JSON",
+			method:         http.MethodPost,
+			payload:        "invalid json",
 			expectedStatus: http.StatusBadRequest,
 		},
 		{

@@ -22,7 +22,8 @@ var version = "dev"
 
 // @title Messagarr API
 // @version {{VERSION}}
-// @description Messagarr is a lightweight notification aggregation service that routes messages to multiple channels (Email, Discord, Slack, Teams) based on priority.
+// @description Messagarr is a lightweight notification aggregation service that routes messages
+// @description to multiple channels (Email, Discord, Slack, Teams) based on priority.
 
 // @contact.name Messagarr Support
 // @contact.url https://github.com/eslutz/Messagarr
@@ -82,12 +83,13 @@ func main() {
 
 	// Graceful shutdown with 10 second timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 
 	if err := httpServer.Shutdown(ctx); err != nil {
+		cancel()
 		slog.Error("Server forced to shutdown", "error", err)
 		os.Exit(1)
 	}
+	cancel()
 
 	slog.Info("Server exited")
 }

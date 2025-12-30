@@ -7,12 +7,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
+
 	"github.com/eslutz/Messagarr/internal/channels"
 	"github.com/eslutz/Messagarr/internal/config"
 	"github.com/eslutz/Messagarr/internal/models"
 	"github.com/eslutz/Messagarr/internal/resilience"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 // Server represents the HTTP server
@@ -28,18 +29,18 @@ type Server struct {
 
 // Metrics holds server metrics (for backward compatibility)
 type Metrics struct {
+	channelStats        map[string]int64
 	mu                  sync.RWMutex
 	totalNotifications  int64
 	failedNotifications int64
-	channelStats        map[string]int64
 }
 
 // NewServer creates a new HTTP server
 func NewServer(cfg *config.Config, version string) *Server {
 	return &Server{
-		config:            cfg,
-		dispatcher:        channels.NewChannelDispatcher(cfg),
-		deduper:           resilience.NewDeduplicator(cfg.DedupTTL),
+		config:     cfg,
+		dispatcher: channels.NewChannelDispatcher(cfg),
+		deduper:    resilience.NewDeduplicator(cfg.DedupTTL),
 		metrics: &Metrics{
 			channelStats: make(map[string]int64),
 		},
@@ -113,7 +114,8 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 
 // handleNotify handles POST /notify
 // @Summary Send a notification
-// @Description Send a notification to one or more channels. Notifications can be routed by priority groups or to specific channels. Duplicates are suppressed within a configurable time window.
+// @Description Send a notification to one or more channels. Notifications can be routed by priority
+// @Description groups or to specific channels. Duplicates are suppressed within a configurable time window.
 // @Tags notifications
 // @Accept json
 // @Produce json
@@ -319,8 +321,8 @@ func (s *Server) determineChannels(req *models.NotificationRequest) []string {
 		priority = "normal"
 	}
 
-	if channels, exists := s.config.PriorityGroups[priority]; exists {
-		return channels
+	if channelList, exists := s.config.PriorityGroups[priority]; exists {
+		return channelList
 	}
 
 	// Fallback to all channels

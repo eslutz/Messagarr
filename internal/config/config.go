@@ -12,26 +12,26 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Port           int                      `yaml:"port"`
-	LogLevel       string                   `yaml:"log_level"`
-	DedupTTL       time.Duration            `yaml:"dedup_ttl"`
-	ChannelsList   []ChannelConfig          `yaml:"channels"`
-	Channels       map[string]ChannelConfig `yaml:"-"` // Built from ChannelsList
+	Channels       map[string]ChannelConfig `yaml:"-"`
 	PriorityGroups map[string][]string      `yaml:"priority_groups"`
+	LogLevel       string                   `yaml:"log_level"`
+	ChannelsList   []ChannelConfig          `yaml:"channels"`
+	DedupTTL       time.Duration            `yaml:"dedup_ttl"`
+	Port           int                      `yaml:"port"`
 }
 
 // ChannelConfig represents a notification channel configuration
 type ChannelConfig struct {
+	Metadata   map[string]string `yaml:"metadata,omitempty"`
 	Type       string            `yaml:"type"`
 	Name       string            `yaml:"name,omitempty"` // Optional: defaults to Type
 	Host       string            `yaml:"host,omitempty"`
-	Port       int               `yaml:"port,omitempty"`
 	User       string            `yaml:"user,omitempty"`
 	Password   string            `yaml:"password,omitempty"`
 	From       string            `yaml:"from,omitempty"`
 	To         string            `yaml:"to,omitempty"`
 	WebhookURL string            `yaml:"webhook_url,omitempty"`
-	Metadata   map[string]string `yaml:"metadata,omitempty"`
+	Port       int               `yaml:"port,omitempty"`
 }
 
 // GetName returns the channel's name (defaults to type if not specified)
@@ -75,12 +75,13 @@ func Load() (*Config, error) {
 
 	// Build channels map from list (name defaults to type)
 	cfg.Channels = make(map[string]ChannelConfig)
-	for _, channel := range cfg.ChannelsList {
+	for i := range cfg.ChannelsList {
+		channel := &cfg.ChannelsList[i]
 		name := channel.GetName()
 		if _, exists := cfg.Channels[name]; exists {
 			return nil, fmt.Errorf("duplicate channel name: %s (use 'name' field to differentiate)", name)
 		}
-		cfg.Channels[name] = channel
+		cfg.Channels[name] = *channel
 	}
 
 	// Validate configuration
@@ -109,8 +110,9 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("no channels configured")
 	}
 
-	for name, channel := range c.Channels {
-		if err := validateChannel(name, channel); err != nil {
+	for name := range c.Channels {
+		channel := c.Channels[name]
+		if err := validateChannel(name, &channel); err != nil {
 			return err
 		}
 	}
@@ -128,7 +130,7 @@ func (c *Config) Validate() error {
 }
 
 // validateChannel validates a single channel configuration
-func validateChannel(name string, channel ChannelConfig) error {
+func validateChannel(name string, channel *ChannelConfig) error {
 	if channel.Type == "" {
 		return fmt.Errorf("channel %s: type is required", name)
 	}

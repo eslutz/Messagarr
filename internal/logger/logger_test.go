@@ -7,12 +7,12 @@ import (
 
 func TestInit(t *testing.T) {
 	// Test development mode
-	os.Unsetenv("ENV")
+	_ = os.Unsetenv("ENV")
 	Init()
 
 	// Test production mode
-	os.Setenv("ENV", "production")
-	defer os.Unsetenv("ENV")
+	_ = os.Setenv("ENV", "production")
+	defer func() { _ = os.Unsetenv("ENV") }()
 	Init()
 }
 
@@ -52,8 +52,8 @@ func TestSetLevel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.envLevel != "" {
-				os.Setenv("LOG_LEVEL", tt.envLevel)
-				defer os.Unsetenv("LOG_LEVEL")
+				_ = os.Setenv("LOG_LEVEL", tt.envLevel)
+				defer func() { _ = os.Unsetenv("LOG_LEVEL") }()
 			}
 
 			SetLevel(tt.level)

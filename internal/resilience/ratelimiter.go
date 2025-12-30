@@ -7,16 +7,16 @@ import (
 
 // RateLimiter implements token bucket rate limiting per channel
 type RateLimiter struct {
-	mu       sync.Mutex
 	buckets  map[string]*tokenBucket
+	mu       sync.Mutex
 	capacity int
 	refill   int
 }
 
 // tokenBucket represents a token bucket for a channel
 type tokenBucket struct {
-	tokens     int
 	lastRefill time.Time
+	tokens     int
 }
 
 // NewRateLimiter creates a new rate limiter

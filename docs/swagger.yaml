@@ -68,7 +68,7 @@ definitions:
         description: Explicit list of channels to send to (overrides priority-based
           routing)
         example:
-        - discord-alerts
+        - discord
         - email
         items:
           type: string
@@ -154,8 +154,9 @@ info:
   contact:
     name: Messagarr Support
     url: https://github.com/eslutz/Messagarr
-  description: Messagarr is a lightweight notification aggregation service that routes
-    messages to multiple channels (Email, Discord, Slack, Teams) based on priority.
+  description: |-
+    Messagarr is a lightweight notification aggregation service that routes messages
+    to multiple channels (Email, Discord, Slack, Teams) based on priority.
   license:
     name: MIT
     url: https://github.com/eslutz/Messagarr/blob/main/LICENSE
@@ -184,9 +185,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Send a notification to one or more channels. Notifications can
-        be routed by priority groups or to specific channels. Duplicates are suppressed
-        within a configurable time window.
+      description: |-
+        Send a notification to one or more channels. Notifications can be routed by priority
+        groups or to specific channels. Duplicates are suppressed within a configurable time window.
       parameters:
       - description: Notification request
         in: body

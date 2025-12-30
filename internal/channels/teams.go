@@ -12,15 +12,15 @@ import (
 
 // TeamsDispatcher sends notifications to Microsoft Teams via webhooks
 type TeamsDispatcher struct {
+	config *config.ChannelConfig
 	name   string
-	config config.ChannelConfig
 }
 
 // NewTeamsDispatcher creates a new Teams dispatcher
-func NewTeamsDispatcher(name string, cfg config.ChannelConfig) *TeamsDispatcher {
+func NewTeamsDispatcher(name string, cfg *config.ChannelConfig) *TeamsDispatcher {
 	return &TeamsDispatcher{
-		name:   name,
 		config: cfg,
+		name:   name,
 	}
 }
 
@@ -31,14 +31,14 @@ func (t *TeamsDispatcher) Name() string {
 
 // TeamsWebhook represents a Microsoft Teams webhook payload (Adaptive Card)
 type TeamsWebhook struct {
-	Type        string                   `json:"type"`
-	Attachments []TeamsAttachment        `json:"attachments"`
+	Type        string            `json:"type"`
+	Attachments []TeamsAttachment `json:"attachments"`
 }
 
 // TeamsAttachment represents a Teams attachment
 type TeamsAttachment struct {
-	ContentType string      `json:"contentType"`
-	Content     TeamsCard   `json:"content"`
+	ContentType string    `json:"contentType"`
+	Content     TeamsCard `json:"content"`
 }
 
 // TeamsCard represents an adaptive card
@@ -132,10 +132,10 @@ func (t *TeamsDispatcher) Send(req *models.NotificationRequest) error {
 	if err != nil {
 		return fmt.Errorf("failed to send Teams webhook: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("Teams webhook returned status %d", resp.StatusCode)
+		return fmt.Errorf("teams webhook returned status %d", resp.StatusCode)
 	}
 
 	return nil

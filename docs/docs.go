@@ -50,7 +50,7 @@ const docTemplate = `{
         },
         "/notify": {
             "post": {
-                "description": "Send a notification to one or more channels. Notifications can be routed by priority groups or to specific channels. Duplicates are suppressed within a configurable time window.",
+                "description": "Send a notification to one or more channels. Notifications can be routed by priority\ngroups or to specific channels. Duplicates are suppressed within a configurable time window.",
                 "consumes": [
                     "application/json"
                 ],
@@ -245,7 +245,7 @@ const docTemplate = `{
                         "type": "string"
                     },
                     "example": [
-                        "discord-alerts",
+                        "discord",
                         "email"
                     ]
                 },
@@ -370,7 +370,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Messagarr API",
-	Description:      "Messagarr is a lightweight notification aggregation service that routes messages to multiple channels (Email, Discord, Slack, Teams) based on priority.",
+	Description:      "Messagarr is a lightweight notification aggregation service that routes messages\nto multiple channels (Email, Discord, Slack, Teams) based on priority.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

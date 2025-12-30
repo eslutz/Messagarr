@@ -43,8 +43,8 @@ func TestInterpolateEnvVars(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set env vars
 			for k, v := range tt.envVars {
-				os.Setenv(k, v)
-				defer os.Unsetenv(k)
+				_ = os.Setenv(k, v)
+				t.Cleanup(func() { _ = os.Unsetenv(k) })
 			}
 
 			result := interpolateEnvVars(tt.input)
@@ -108,7 +108,7 @@ func TestValidateChannel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateChannel("test", tt.channel)
+			err := validateChannel("test", &tt.channel)
 			if (err != nil) != tt.wantError {
 				t.Errorf("validateChannel() error = %v, wantError %v", err, tt.wantError)
 			}
@@ -133,22 +133,22 @@ priority_groups:
     - test-discord
 `
 
-	tmpFile, err := os.CreateTemp("", "config-*.yaml")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
+	tmpFile, tmpErr := os.CreateTemp("", "config-*.yaml")
+	if tmpErr != nil {
+		t.Fatalf("Failed to create temp file: %v", tmpErr)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
-	if _, err := tmpFile.Write([]byte(configContent)); err != nil {
-		t.Fatalf("Failed to write temp file: %v", err)
+	if _, writeErr := tmpFile.WriteString(configContent); writeErr != nil {
+		t.Fatalf("Failed to write temp file: %v", writeErr)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Set environment variables
-	os.Setenv("CONFIG_PATH", tmpFile.Name())
-	os.Setenv("TEST_WEBHOOK_URL", "https://example.com/webhook")
-	defer os.Unsetenv("CONFIG_PATH")
-	defer os.Unsetenv("TEST_WEBHOOK_URL")
+	_ = os.Setenv("CONFIG_PATH", tmpFile.Name())
+	_ = os.Setenv("TEST_WEBHOOK_URL", "https://example.com/webhook")
+	defer func() { _ = os.Unsetenv("CONFIG_PATH") }()
+	defer func() { _ = os.Unsetenv("TEST_WEBHOOK_URL") }()
 
 	cfg, err := Load()
 	if err != nil {
@@ -178,19 +178,19 @@ channels:
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
-	if _, err := tmpFile.Write([]byte(configContent)); err != nil {
-		t.Fatalf("Failed to write temp file: %v", err)
+	if _, writeErr := tmpFile.WriteString(configContent); writeErr != nil {
+		t.Fatalf("Failed to write temp file: %v", writeErr)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
-	os.Setenv("CONFIG_PATH", tmpFile.Name())
-	defer os.Unsetenv("CONFIG_PATH")
+	_ = os.Setenv("CONFIG_PATH", tmpFile.Name())
+	defer func() { _ = os.Unsetenv("CONFIG_PATH") }()
 
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Failed to load config: %v", err)
+	cfg, loadErr := Load()
+	if loadErr != nil {
+		t.Fatalf("Failed to load config: %v", loadErr)
 	}
 
 	// Check defaults

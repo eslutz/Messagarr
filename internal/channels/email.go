@@ -3,6 +3,7 @@ package channels
 import (
 	"crypto/tls"
 	"fmt"
+	"html"
 	"net/smtp"
 	"regexp"
 	"strings"
@@ -16,25 +17,30 @@ var multiSpaceRegex = regexp.MustCompile(`\s+`)
 
 // sanitize cleans a string for safe use in email headers and body
 func sanitize(s string) string {
-	s = strings.ReplaceAll(s, "\x00", "")         // Remove null bytes
-	s = strings.ReplaceAll(s, "\r", " ")          // Replace carriage returns with space
-	s = strings.ReplaceAll(s, "\n", " ")          // Replace newlines with space
-	s = multiSpaceRegex.ReplaceAllString(s, " ")  // Collapse multiple spaces into one
-	s = strings.TrimSpace(s)                      // Remove leading and trailing whitespace
+	s = strings.ReplaceAll(s, "\x00", "")        // Remove null bytes
+	s = strings.ReplaceAll(s, "\r", " ")         // Replace carriage returns with space
+	s = strings.ReplaceAll(s, "\n", " ")         // Replace newlines with space
+	s = multiSpaceRegex.ReplaceAllString(s, " ") // Collapse multiple spaces into one
+	s = strings.TrimSpace(s)                     // Remove leading and trailing whitespace
 	return s
+}
+
+// sanitizeAndEscapeHTML sanitizes for header safety and escapes HTML metacharacters
+func sanitizeAndEscapeHTML(s string) string {
+	return html.EscapeString(sanitize(s))
 }
 
 // EmailDispatcher sends notifications via SMTP
 type EmailDispatcher struct {
+	config *config.ChannelConfig
 	name   string
-	config config.ChannelConfig
 }
 
 // NewEmailDispatcher creates a new email dispatcher
-func NewEmailDispatcher(name string, cfg config.ChannelConfig) *EmailDispatcher {
+func NewEmailDispatcher(name string, cfg *config.ChannelConfig) *EmailDispatcher {
 	return &EmailDispatcher{
-		name:   name,
 		config: cfg,
+		name:   name,
 	}
 }
 
@@ -57,13 +63,13 @@ func (e *EmailDispatcher) Send(req *models.NotificationRequest) error {
 	fmt.Fprintf(&message, "Subject: %s\r\n", subject)
 	message.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
 	message.WriteString("\r\n")
-	message.WriteString(sanitize(req.Body))
+	message.WriteString(sanitizeAndEscapeHTML(req.Body))
 
 	// Add metadata if present
 	if len(req.Metadata) > 0 {
 		message.WriteString("\n\n--- Metadata ---\n")
 		for k, v := range req.Metadata {
-			fmt.Fprintf(&message, "%s: %s\n", sanitize(k), sanitize(v))
+			fmt.Fprintf(&message, "%s: %s\n", sanitize(k), sanitizeAndEscapeHTML(v))
 		}
 	}
 
@@ -80,7 +86,7 @@ func (e *EmailDispatcher) Send(req *models.NotificationRequest) error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to SMTP server: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// STARTTLS if available
 	if ok, _ := client.Extension("STARTTLS"); ok {
@@ -113,7 +119,7 @@ func (e *EmailDispatcher) Send(req *models.NotificationRequest) error {
 
 	_, err = w.Write([]byte(message.String()))
 	if err != nil {
-		w.Close()
+		_ = w.Close()
 		return fmt.Errorf("failed to write message: %w", err)
 	}
 

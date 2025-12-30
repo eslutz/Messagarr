@@ -12,10 +12,10 @@ import (
 
 // Deduplicator prevents duplicate notifications within a time window
 type Deduplicator struct {
-	mu      sync.RWMutex
 	seen    map[string]time.Time
-	ttl     time.Duration
 	cleanup *time.Ticker
+	mu      sync.RWMutex
+	ttl     time.Duration
 }
 
 // NewDeduplicator creates a new deduplicator

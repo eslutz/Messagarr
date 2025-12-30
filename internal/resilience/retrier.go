@@ -23,7 +23,7 @@ func NewRetrier() *Retrier {
 // Do executes a function with retry logic
 func (r *Retrier) Do(fn func() error) error {
 	var err error
-	
+
 	for attempt := 0; attempt <= r.maxRetries; attempt++ {
 		err = fn()
 		if err == nil {
@@ -44,12 +44,12 @@ func (r *Retrier) Do(fn func() error) error {
 func (r *Retrier) calculateDelay(attempt int) time.Duration {
 	multiplier := math.Pow(2, float64(attempt))
 	delay := time.Duration(multiplier) * r.baseDelay
-	
+
 	// Cap at 30 seconds
 	maxDelay := 30 * time.Second
 	if delay > maxDelay {
 		delay = maxDelay
 	}
-	
+
 	return delay
 }
