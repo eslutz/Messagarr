@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Build binaries
+        run: |
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o messagarr-linux-amd64 ./cmd/messagarr
+          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o messagarr-linux-arm64 ./cmd/messagarr
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o messagarr-darwin-amd64 ./cmd/messagarr
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o messagarr-darwin-arm64 ./cmd/messagarr
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o messagarr-windows-amd64.exe ./cmd/messagarr
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            messagarr-linux-amd64
+            messagarr-linux-arm64
+            messagarr-darwin-amd64
+            messagarr-darwin-arm64
+            messagarr-windows-amd64.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/messagarr
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

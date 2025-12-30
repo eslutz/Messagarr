@@ -1,0 +1,38 @@
+# Messagarr Configuration
+# No secrets should be stored in this file - use environment variables instead
+
+port: 8080
+log_level: info
+dedup_ttl: 5m
+
+channels:
+  email:
+    type: smtp
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    user: ${SMTP_USER}
+    password: ${SMTP_PASSWORD}
+    from: ${SMTP_FROM}
+    to: ${EMAIL_TO}
+    
+  discord-alerts:
+    type: discord
+    webhook_url: ${DISCORD_WEBHOOK_URL}
+    
+  slack-ops:
+    type: slack
+    webhook_url: ${SLACK_WEBHOOK_URL}
+    
+  teams-infra:
+    type: teams
+    webhook_url: ${TEAMS_WEBHOOK_URL}
+
+priority_groups:
+  high:
+    - email
+    - discord-alerts
+  normal:
+    - discord-alerts
+    - slack-ops
+  low:
+    - slack-ops
