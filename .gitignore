@@ -27,8 +27,8 @@ coverage.out
 # Go workspace file
 go.work
 
-# Project binary
-messagarr
+# Project binary (in root only, not cmd/messagarr directory)
+/messagarr
 
 # Environment files with secrets
 .env

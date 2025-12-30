@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/eslutz/Messagarr/internal/config"
 	"github.com/eslutz/Messagarr/internal/models"
@@ -117,7 +118,8 @@ func (s *SlackDispatcher) Send(req *models.NotificationRequest) error {
 		return fmt.Errorf("failed to marshal Slack webhook: %w", err)
 	}
 
-	resp, err := http.Post(s.config.WebhookURL, "application/json", bytes.NewBuffer(payload))
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Post(s.config.WebhookURL, "application/json", bytes.NewBuffer(payload))
 	if err != nil {
 		return fmt.Errorf("failed to send Slack webhook: %w", err)
 	}

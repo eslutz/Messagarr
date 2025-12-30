@@ -61,8 +61,11 @@ func main() {
 	// Create HTTP server
 	server := api.NewServer(cfg, version)
 	httpServer := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: server.Router(),
+		Addr:         fmt.Sprintf(":%d", cfg.Port),
+		Handler:      server.Router(),
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	// Start server in a goroutine
