@@ -1,0 +1,6 @@
+@Messagarr.Api_HostAddress = http://localhost:5286
+
+GET {{Messagarr.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
