@@ -9,7 +9,7 @@ channels:
   email:
     type: smtp
     host: ${SMTP_HOST}
-    port: ${SMTP_PORT}
+    port: 587
     user: ${SMTP_USER}
     password: ${SMTP_PASSWORD}
     from: ${SMTP_FROM}
