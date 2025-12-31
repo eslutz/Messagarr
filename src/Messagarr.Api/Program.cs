@@ -1,3 +1,4 @@
+using Messagarr.Api.Dispatchers;
 using Messagarr.Api.Endpoints;
 using Messagarr.Api.Services;
 using Messagarr.Core.Interfaces;
@@ -22,9 +23,19 @@ var dbPath = Path.Combine(dataDirectory, "messagarr.db");
 builder.Services.AddDbContext<MessagearrDbContext>(options =>
     options.UseSqlite($"Data Source={dbPath}"));
 
+// Register HttpClient for dispatchers
+builder.Services.AddHttpClient();
+
 // Register services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IChannelService, ChannelService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// Register dispatcher factory and resilience services
+builder.Services.AddScoped<ChannelDispatcherFactory>();
+builder.Services.AddSingleton(new DeduplicationService(TimeSpan.FromMinutes(5)));
+builder.Services.AddSingleton(new RateLimitService(tokensPerSecond: 10, bucketSize: 20));
+builder.Services.AddSingleton(new RetryService(maxRetries: 3, initialDelaySeconds: 1, maxDelaySeconds: 30));
 
 // CORS for web UI
 builder.Services.AddCors(options =>
@@ -58,6 +69,7 @@ app.UseCors();
 // Map endpoints
 app.MapAuthEndpoints();
 app.MapChannelEndpoints();
+app.MapNotificationEndpoints();
 
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))

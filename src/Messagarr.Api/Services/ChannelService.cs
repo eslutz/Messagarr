@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Messagarr.Api.Dispatchers;
 using Messagarr.Core.Entities;
 using Messagarr.Core.Interfaces;
 using Messagarr.Core.Models;
@@ -10,12 +11,12 @@ namespace Messagarr.Api.Services;
 public class ChannelService : IChannelService
 {
     private readonly MessagearrDbContext _dbContext;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly ChannelDispatcherFactory _dispatcherFactory;
 
-    public ChannelService(MessagearrDbContext dbContext, IServiceProvider serviceProvider)
+    public ChannelService(MessagearrDbContext dbContext, ChannelDispatcherFactory dispatcherFactory)
     {
         _dbContext = dbContext;
-        _serviceProvider = serviceProvider;
+        _dispatcherFactory = dispatcherFactory;
     }
 
     public async Task<IEnumerable<ChannelDto>> GetAllChannelsAsync()
@@ -141,9 +142,14 @@ public class ChannelService : IChannelService
 
     private IChannelDispatcher? GetDispatcherForChannel(Channel channel)
     {
-        // This will be implemented when we create the dispatchers
-        // For now, return null
-        return null;
+        try
+        {
+            return _dispatcherFactory.CreateDispatcher(channel);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static ChannelDto MapToDto(Channel channel)
