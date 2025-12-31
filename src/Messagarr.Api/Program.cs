@@ -66,6 +66,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 
+// Serve static files (web UI)
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 // Map endpoints
 app.MapAuthEndpoints();
 app.MapChannelEndpoints();
