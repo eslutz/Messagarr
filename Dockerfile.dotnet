@@ -37,15 +37,15 @@ COPY --from=build /app/publish .
 USER messagarr
 
 # Set environment variables
-ENV ASPNETCORE_URLS=http://+:4545 \
+ENV ASPNETCORE_URLS=http://+:9093 \
     DataDirectory=/config
 
 # Expose port
-EXPOSE 4545
+EXPOSE 9093
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:4545/health || exit 1
+    CMD curl -f http://localhost:9093/health || exit 1
 
 # Run application
 ENTRYPOINT ["dotnet", "Messagarr.Api.dll"]
